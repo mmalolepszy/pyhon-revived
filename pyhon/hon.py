@@ -88,7 +88,7 @@ class Hon:
     async def _create_appliance(
         self, appliance_data: Dict[str, Any], api: HonAPI, zone: int = 0
     ) -> None:
-        appliance = HonAppliance(api, appliance_data, zone=zone)
+        appliance = await HonAppliance(api, appliance_data, zone=zone).create()
         if appliance.mac_address == "":
             return
         try:

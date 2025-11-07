@@ -106,10 +106,16 @@ class MQTTClient:
         _LOGGER.info("%s - %s", topic, payload)
 
     async def _start(self) -> None:
+        aws_token = await self._api.load_aws_token()
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, MQTTClient._build_mqtt_client, self, aws_token)
+        self.client.start()
+
+    def _build_mqtt_client(self, aws_token) -> None:
         self._client = mqtt5_client_builder.websockets_with_custom_authorizer(
             endpoint=const.AWS_ENDPOINT,
             auth_authorizer_name=const.AWS_AUTHORIZER,
-            auth_authorizer_signature=await self._api.load_aws_token(),
+            auth_authorizer_signature=aws_token,
             auth_token_key_name="token",
             auth_token_value=self._api.auth.id_token,
             client_id=f"{self._mobile_id}_{secrets.token_hex(8)}",
@@ -120,7 +126,6 @@ class MQTTClient:
             on_lifecycle_disconnection=self._on_lifecycle_disconnection,
             on_publish_received=self._on_publish_received,
         )
-        self.client.start()
 
     def _subscribe_appliances(self) -> None:
         for appliance in self._appliances:
