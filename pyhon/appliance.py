@@ -1,9 +1,11 @@
+import asyncio
 import importlib
 import logging
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Dict, Any, TYPE_CHECKING, List, TypeVar, overload
+from typing_extensions import Self
 
 from pyhon import diagnose, exceptions
 from pyhon.appliances.base import ApplianceBase
@@ -47,9 +49,16 @@ class HonAppliance:
             not self._attributes.get("lastConnEvent", {}).get("category", "")
             == "DISCONNECTED"
         )
+        self._extra: Optional[ApplianceBase] = None
 
+    async def create(self) -> Self:
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, HonAppliance.import_module, self)
+        return self
+
+    def import_module(self):
         try:
-            self._extra: Optional[ApplianceBase] = importlib.import_module(
+            self._extra = importlib.import_module(
                 f"pyhon.appliances.{self.appliance_type.lower()}"
             ).Appliance(self)
         except ModuleNotFoundError:
