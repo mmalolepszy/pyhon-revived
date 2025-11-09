@@ -6,15 +6,15 @@ with open("README.md", "r", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name="pyhOn",
-    version="0.17.5",
-    author="Andre Basche",
+    name="pyhon-revived",
+    version="0.18.0",
+    author="Andre Basche, Michał Małolepszy",
     description="Control hOn devices with python",
     long_description=long_description,
     long_description_content_type="text/markdown",
     project_urls={
-        "GitHub": "https://github.com/Andre0512/pyhOn",
-        "PyPI": "https://pypi.org/project/pyhOn",
+        "GitHub": "https://github.com/mmalolepszy/pyhon-revived",
+        "PyPI": "https://pypi.org/project/pyhon-revived",
     },
     license="MIT",
     platforms="any",
@@ -30,17 +30,17 @@ setup(
     classifiers=[
         "Development Status :: 4 - Beta",
         "Environment :: Console",
-        "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
     entry_points={
         "console_scripts": [
-            "pyhOn = pyhon.__main__:start",
+            "pyhon = pyhon.__main__:start",
         ]
     },
 )
