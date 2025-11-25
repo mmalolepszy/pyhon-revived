@@ -34,7 +34,6 @@ class MQTTClient:
 
     async def create(self) -> "MQTTClient":
         await self._start()
-        self._subscribe_appliances()
         await self.start_watchdog()
         return self
 
@@ -51,6 +50,12 @@ class MQTTClient:
         _LOGGER.info(
             "Lifecycle Connection Success: %s", str(lifecycle_connect_success_data)
         )
+        if not lifecycle_connect_success_data.negotiated_settings.rejoined_session:
+            # Resubscribe to all topics after reconnection
+            # This is needed because we use a new client_id each time (no session persistence)
+            self._subscribe_appliances()
+        else:
+            _LOGGER.info("Rejoined existing session")
 
     def _on_lifecycle_attempting_connect(
         self,
@@ -148,4 +153,3 @@ class MQTTClient:
             if not self._connection:
                 _LOGGER.info("Restart mqtt connection")
                 await self._start()
-                self._subscribe_appliances()
