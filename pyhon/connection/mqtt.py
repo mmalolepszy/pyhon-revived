@@ -53,7 +53,8 @@ class MQTTClient:
         if not lifecycle_connect_success_data.negotiated_settings.rejoined_session:
             # Resubscribe to all topics after reconnection
             # This is needed because we use a new client_id each time (no session persistence)
-            self._subscribe_appliances()
+            loop = asyncio.get_running_loop()
+            loop.run_in_executor(None, MQTTClient._subscribe_appliances, self)
         else:
             _LOGGER.info("Rejoined existing session")
 
