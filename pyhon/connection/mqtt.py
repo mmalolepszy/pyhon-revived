@@ -24,6 +24,7 @@ class MQTTClient:
         self._api = hon.api
         self._appliances = hon.appliances
         self._connection = False
+        self._subscribed = False
         self._watchdog_task: asyncio.Task[None] | None = None
 
     @property
@@ -53,8 +54,8 @@ class MQTTClient:
         if not lifecycle_connect_success_data.negotiated_settings.rejoined_session:
             # Resubscribe to all topics after reconnection
             # This is needed because we use a new client_id each time (no session persistence)
-            loop = asyncio.get_running_loop()
-            loop.run_in_executor(None, MQTTClient._subscribe_appliances, self)
+            _LOGGER.info("MQTT connection established, marking as not subscribed")
+            self._subscribed = False
         else:
             _LOGGER.info("Rejoined existing session")
 
@@ -134,8 +135,13 @@ class MQTTClient:
         )
 
     def _subscribe_appliances(self) -> None:
-        for appliance in self._appliances:
-            self._subscribe(appliance)
+        try:
+            for appliance in self._appliances:
+                self._subscribe(appliance)
+            self._subscribed = True
+        except Exception as e:
+            _LOGGER.error("Error subscribing to appliances: %s - %s", repr(e), str(e))
+
 
     def _subscribe(self, appliance: HonAppliance) -> None:
         for topic in appliance.info.get("topics", {}).get("subscribe", []):
@@ -154,3 +160,6 @@ class MQTTClient:
             if not self._connection:
                 _LOGGER.info("Restart mqtt connection")
                 await self._start()
+            elif not self._subscribed:
+                _LOGGER.info("Resubscribing to appliance topics")
+                self._subscribe_appliances()
