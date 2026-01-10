@@ -46,6 +46,7 @@ def get_arguments() -> Dict[str, Any]:
     )
     translation.add_argument("--json", help="print as json", action="store_true")
     parser.add_argument("-i", "--import", help="import pyhon data", nargs="?")
+    parser.add_argument("-o", "--output", help="save output to file")
     return vars(parser.parse_args())
 
 
@@ -75,6 +76,9 @@ def get_login_data(args: Dict[str, str]) -> Tuple[str, str]:
 
 async def main() -> None:
     args = get_arguments()
+    if path := args.get("output"):
+        with open(path, "w", encoding="utf-8"):
+            pass
     if language := args.get("translate"):
         await translate(language, json_output=args.get("json", ""))
         return
@@ -91,8 +95,11 @@ async def main() -> None:
                     archive = await diagnose.zip_archive(device, path, anonymous)
                     print(f"Created {archive}")
                 continue
-            print("=" * 10, device.appliance_type, "-", device.nick_name, "=" * 10)
+            title = (
+                f"{'=' * 10} {device.appliance_type} - {device.nick_name} {'=' * 10}"
+            )
             if args.get("keys"):
+                print(title)
                 data = device.data.copy()
                 attr = "get" if args.get("all") else "pop"
                 print(
@@ -106,7 +113,15 @@ async def main() -> None:
                     )
                 )
             else:
-                print(diagnose.yaml_export(device))
+                output = diagnose.yaml_export(device)
+                if path := args.get("output"):
+                    with open(path, "a", encoding="utf-8") as f:
+                        f.write(f"{title}\n")
+                        f.write(output)
+                    print(f"Appended {device.nick_name} to {path}")
+                else:
+                    print(title)
+                    print(output)
 
 
 def start() -> None:
