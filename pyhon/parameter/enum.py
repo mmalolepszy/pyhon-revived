@@ -24,7 +24,9 @@ class HonParameterEnum(HonParameter):
         super()._set_attributes()
         self._default = self._attributes.get("defaultValue", "")
         self._value = self._default or "0"
-        self._values = self._attributes.get("enumValues", [])
+        self._values = self._attributes.get("enumValues", []) or []
+        if not isinstance(self._values, list):
+            self._values = [self._values]
 
     def __repr__(self) -> str:
         return f"{self.__class__} (<{self.key}> {self.values})"
