@@ -102,6 +102,18 @@ $ pyhon translate fr > hon_fr.yaml
 $ pyhon translate en --json > hon_en.json
 ```
 
+## Testing a development branch in Home Assistant
+
+Home Assistant runs all integrations inside a single shared Python virtual environment, so installing a package there affects every integration.
+Because HA re-checks `manifest.json` requirements on each restart, a plain `pip install` may be silently skipped when it sees the version string from `setup.py` already satisfying the pinned requirement.
+Use `--force-reinstall` to override this:
+
+```bash
+pip install --force-reinstall "git+https://github.com/fffergal/pyhon-revived.git@copilot/fix-oauth-flow-issues"
+```
+
+Then restart Home Assistant. HA will not overwrite the freshly installed git version as long as its version number satisfies the requirement declared in the integration's `manifest.json`.
+
 ## Usage example
 This library is used for the custom [HomeAssistant Integration "Haier hOn"](https://github.com/mmalolepszy/hon-revived).
 
