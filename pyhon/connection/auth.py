@@ -106,7 +106,7 @@ class HonAuth:
         return await self._login_url(login_url)
 
     def _handle_oauth_callback(self, url: str) -> None:
-        if url.startswith(f"{const.APP}://"):
+        if url.startswith(f"{const.APP}://") or "oauth/done#access_token=" in url:
             self._parse_token_data(url)
             raise exceptions.HonNoAuthenticationNeeded()
 
@@ -127,9 +127,7 @@ class HonAuth:
             self._expires = datetime.utcnow()
             login_url: List[str] = re.findall("(?:url|href) ?= ?'(.+?)'", text)
             if not login_url:
-                if "oauth/done#access_token=" in text:
-                    self._parse_token_data(text)
-                    raise exceptions.HonNoAuthenticationNeeded()
+                self._handle_oauth_callback(text)
                 await self._error_logger(response)
             self._handle_oauth_callback(login_url[0])
             # As of July 2024 the login page has changed, and we started getting a /NewhOnLogin based relative URL in JS to parse
