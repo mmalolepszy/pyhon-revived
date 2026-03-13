@@ -105,6 +105,11 @@ class HonAuth:
         login_url = await self._handle_redirects(login_url)
         return await self._login_url(login_url)
 
+    def _handle_oauth_callback(self, url: str) -> None:
+        if url.startswith(f"{const.APP}://") or "oauth/done#access_token=" in url:
+            self._parse_token_data(url)
+            raise exceptions.HonNoAuthenticationNeeded()
+
     async def _introduce(self) -> str:
         redirect_uri = urllib.parse.quote(f"{const.APP}://mobilesdk/detect/oauth/done")
         params = {
@@ -122,10 +127,9 @@ class HonAuth:
             self._expires = datetime.utcnow()
             login_url: List[str] = re.findall("(?:url|href) ?= ?'(.+?)'", text)
             if not login_url:
-                if "oauth/done#access_token=" in text:
-                    self._parse_token_data(text)
-                    raise exceptions.HonNoAuthenticationNeeded()
+                self._handle_oauth_callback(text)
                 await self._error_logger(response)
+            self._handle_oauth_callback(login_url[0])
             # As of July 2024 the login page has changed, and we started getting a /NewhOnLogin based relative URL in JS to parse
             if login_url[0].startswith("/NewhOnLogin"):
                 # Force use of the old login page to avoid having to make the new one work..
@@ -141,7 +145,9 @@ class HonAuth:
 
     async def _handle_redirects(self, login_url: str) -> str:
         redirect1 = await self._manual_redirect(login_url)
+        self._handle_oauth_callback(redirect1)
         redirect2 = await self._manual_redirect(redirect1)
+        self._handle_oauth_callback(redirect2)
         return f"{redirect2}&System=IoT_Mobile_App&RegistrationSubChannel=hOn"
 
     async def _login_url(self, login_url: str) -> bool:
@@ -205,7 +211,7 @@ class HonAuth:
             self._auth.access_token = access_token[0]
         if refresh_token := re.findall("refresh_token=(.*?)&", text):
             self._auth.refresh_token = parse.unquote(refresh_token[0])
-        if id_token := re.findall("id_token=(.*?)&", text):
+        if id_token := re.findall("id_token=(.*?)(?:&|$)", text):
             self._auth.id_token = id_token[0]
         return bool(access_token and refresh_token and id_token)
 
@@ -257,17 +263,15 @@ class HonAuth:
 
     async def authenticate(self) -> None:
         self.clear()
-        try:
+        with suppress(exceptions.HonNoAuthenticationNeeded):
             if not await self._load_login():
                 raise exceptions.HonAuthenticationError("Can't open login page")
             if not (url := await self._login()):
                 raise exceptions.HonAuthenticationError("Can't login")
             if not await self._get_token(url):
                 raise exceptions.HonAuthenticationError("Can't get token")
-            if not await self._api_auth():
-                raise exceptions.HonAuthenticationError("Can't get api token")
-        except exceptions.HonNoAuthenticationNeeded:
-            return
+        if not await self._api_auth():
+            raise exceptions.HonAuthenticationError("Can't get api token")
 
     async def refresh(self, refresh_token: str = "") -> bool:
         if refresh_token:
