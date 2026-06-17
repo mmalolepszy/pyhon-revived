@@ -8,7 +8,7 @@ CLIENT_ID = (
     "3MVG9QDx8IX8nP5T2Ha8ofvlmjLZl5L_gvfbT9."
     "HJvpHGKoAS_dcMN8LYpTSYeVFCraUnV.2Ag1Ki7m4znVO6"
 )
-APP_VERSION = "2.6.5"
+APP_VERSION = "2.27.9"
 OS_VERSION = 999
 OS = "android"
 DEVICE_MODEL = "pyhOn"
