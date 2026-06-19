@@ -8,6 +8,7 @@ from yarl import URL
 
 from pyhon import const
 from pyhon.connection.handler.base import ConnectionHandler
+from pyhon.helper import redact_url
 from pyhon.typedefs import Callback
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,5 +35,7 @@ class HonAuthConnectionHandler(ConnectionHandler):
     ) -> AsyncIterator[aiohttp.ClientResponse]:
         kwargs["headers"] = kwargs.pop("headers", {}) | self._HEADERS
         async with method(url, *args, **kwargs) as response:
-            self._called_urls.append((response.status, str(response.request_info.url)))
+            self._called_urls.append(
+                (response.status, str(redact_url(response.request_info.url)))
+            )
             yield response
