@@ -60,6 +60,8 @@ class HonConnectionHandler(ConnectionHandler):
     async def _check_headers(self, headers: Dict[str, str]) -> Dict[str, str]:
         if not (self.auth.cognito_token and self.auth.id_token):
             await self.auth.authenticate()
+        elif self.auth.token_expires_soon:
+            await self.auth.refresh(self._refresh_token)
         self._refresh_token = self.auth.refresh_token
         headers["cognito-token"] = self.auth.cognito_token
         headers["id-token"] = self.auth.id_token
