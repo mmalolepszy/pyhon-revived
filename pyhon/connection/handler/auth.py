@@ -14,7 +14,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class HonAuthConnectionHandler(ConnectionHandler):
-    _HEADERS = {"user-agent": const.USER_AGENT}
+    _HEADERS = {"user-agent": const.USER_AGENT, "x-api-key": const.API_KEY}
 
     def __init__(self, session: Optional[aiohttp.ClientSession] = None) -> None:
         super().__init__(session)
