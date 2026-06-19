@@ -83,14 +83,19 @@ class HonAPI:
         return self
 
     async def load_appliances(self) -> List[Dict[str, Any]]:
-        async with self._hon.get(f"{const.API_URL}/commands/v1/appliance") as resp:
+        # The legacy /commands/v1/appliance listing was retired in 2026-06 and now
+        # returns an empty list. Appliances are read from the unified-api view.
+        url = f"{const.API_URL}/unified-api/v1/view/appliance-list"
+        payload = {"deviceId": self._hon.device.mobile_id}
+        async with self._hon.post(url, json=payload) as resp:
             result = await resp.json()
-        if result:
-            appliances: List[Dict[str, Any]] = result.get("payload", {}).get(
-                "appliances", {}
-            )
-            return appliances
-        return []
+        appliances: List[Dict[str, Any]] = (
+            result.get("modules", {})
+            .get("applianceList", {})
+            .get("payload", {})
+            .get("appliances", [])
+        )
+        return appliances
 
     async def load_commands(self, appliance: HonAppliance) -> Dict[str, Any]:
         params: Dict[str, str | int] = {
