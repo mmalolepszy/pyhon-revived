@@ -95,11 +95,7 @@ class HonAPI:
             .get("payload", {})
             .get("appliances", [])
         )
-        return [
-            appliance
-            for appliance in appliances
-            if "macAddress" in appliance and "applianceTypeId" in appliance
-        ]
+        return appliances
 
     async def load_commands(self, appliance: HonAppliance) -> Dict[str, Any]:
         params: Dict[str, str | int] = {
