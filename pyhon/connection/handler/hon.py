@@ -58,8 +58,6 @@ class HonConnectionHandler(ConnectionHandler):
         return self
 
     async def _check_headers(self, headers: Dict[str, str]) -> Dict[str, str]:
-        if self._refresh_token:
-            await self.auth.refresh(self._refresh_token)
         if not (self.auth.cognito_token and self.auth.id_token):
             await self.auth.authenticate()
         self._refresh_token = self.auth.refresh_token

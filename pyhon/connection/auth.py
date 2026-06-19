@@ -43,6 +43,8 @@ class HonAuth:
         self._device = device
         self._expires: datetime = datetime.utcnow()
         self._auth = HonAuthData()
+        self._session_id = ""
+        self._code_verifier = ""
 
     @property
     def cognito_token(self) -> str:
@@ -129,7 +131,7 @@ class HonAuth:
         return True
 
     async def authenticate(self) -> None:
-        """Authenticate against the hOn CIAM endpoint.
+        """Authenticate against the hOn CIAM endpoint with email/password.
 
         Replaces the legacy Salesforce Aura / OAuth2 login that Haier retired
         in 2026-06. The app now logs in through ``/ciam/authorize`` and
@@ -142,16 +144,29 @@ class HonAuth:
             raise exceptions.HonAuthenticationError("Can't get session id")
         if not await self._get_tokens(session_id, code_verifier):
             raise exceptions.HonAuthenticationError("Can't get api token")
+        self._session_id = session_id
+        self._code_verifier = code_verifier
         self._expires = datetime.utcnow()
 
     async def refresh(self, refresh_token: str = "") -> bool:
         """Refresh the session.
 
-        The CIAM endpoint does not expose a usable refresh-token grant, so a full
-        re-authentication is performed with the stored credentials.
+        ``/ciam/token`` has no separate refresh-token grant, but replaying the
+        same ``session_id``/``code_verifier`` pair from the original login
+        mints fresh tokens without resubmitting credentials (confirmed to
+        still work at least 24h after login). Try that cheap path first, and
+        only fall back to a full credentials-based ``authenticate()`` once the
+        cached session has actually expired or none is cached yet.
         """
         if refresh_token:
             self._auth.refresh_token = refresh_token
+        if self._session_id and self._code_verifier:
+            try:
+                if await self._get_tokens(self._session_id, self._code_verifier):
+                    self._expires = datetime.utcnow()
+                    return True
+            except exceptions.HonAuthenticationError:
+                pass
         try:
             await self.authenticate()
         except exceptions.HonAuthenticationError:
@@ -161,6 +176,8 @@ class HonAuth:
     def clear(self) -> None:
         self._session.cookie_jar.clear_domain(const.AUTH_API.split("/")[-2])
         self._request.called_urls = []
+        self._session_id = ""
+        self._code_verifier = ""
         self._auth.cognito_token = ""
         self._auth.id_token = ""
         self._auth.access_token = ""
