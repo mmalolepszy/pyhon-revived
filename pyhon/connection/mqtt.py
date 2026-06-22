@@ -25,6 +25,7 @@ class MQTTClient:
         self._appliances = hon.appliances
         self._connection = False
         self._subscribed = False
+        self._needs_reauth = False
         self._watchdog_task: asyncio.Task[None] | None = None
 
     @property
@@ -75,6 +76,13 @@ class MQTTClient:
         _LOGGER.info(
             "Lifecycle Connection Failure - %s", str(lifecycle_connection_failure_data)
         )
+        connack = lifecycle_connection_failure_data.connack_packet
+        if connack is not None and connack.reason_code in (
+            mqtt5.ConnectReasonCode.NOT_AUTHORIZED,
+            mqtt5.ConnectReasonCode.BAD_USERNAME_OR_PASSWORD,
+        ):
+            _LOGGER.info("MQTT connection rejected as unauthorized, will re-authenticate")
+            self._needs_reauth = True
 
     def _on_lifecycle_disconnection(
         self,
@@ -113,6 +121,12 @@ class MQTTClient:
         _LOGGER.info("%s - %s", topic, payload)
 
     async def _start(self) -> None:
+        if self._client is not None:
+            self._client.stop()
+        if self._needs_reauth:
+            _LOGGER.info("Re-authenticating before reconnecting to mqtt")
+            await self._api.auth.refresh()
+            self._needs_reauth = False
         aws_token = await self._api.load_aws_token()
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, MQTTClient._build_mqtt_client, self, aws_token)
