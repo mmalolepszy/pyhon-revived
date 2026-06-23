@@ -83,6 +83,11 @@ class MQTTClient:
         ):
             _LOGGER.info("MQTT connection rejected as unauthorized, will re-authenticate")
             self._needs_reauth = True
+            if self._client is not None:
+                # Stop the client's own reconnect loop immediately, otherwise it
+                # keeps retrying with the same stale token until the watchdog
+                # notices and restarts with a fresh one.
+                self._client.stop()
 
     def _on_lifecycle_disconnection(
         self,
