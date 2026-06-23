@@ -72,18 +72,18 @@ class HonConnectionHandler(ConnectionHandler):
         loop: int = kwargs.pop("loop", 0)
         kwargs["headers"] = await self._check_headers(kwargs.get("headers", {}))
         async with method(url, *args, **kwargs) as response:
-            if (
-                self.auth.token_expires_soon or response.status in [401, 403]
-            ) and loop == 0:
+            needs_retry = response.status in (401, 403) or (
+                (self.auth.token_expires_soon and loop == 0)
+                or (self.auth.token_is_expired and loop == 1)
+            )
+            if needs_retry and loop == 0:
                 _LOGGER.info("Try refreshing token...")
                 await self.auth.refresh(self._refresh_token)
                 async with self._intercept(
                     method, url, *args, loop=loop + 1, **kwargs
                 ) as result:
                     yield result
-            elif (
-                self.auth.token_is_expired or response.status in [401, 403]
-            ) and loop == 1:
+            elif needs_retry and loop == 1:
                 _LOGGER.info(
                     "%s - Error %s - %s",
                     response.request_info.url,
@@ -95,7 +95,7 @@ class HonConnectionHandler(ConnectionHandler):
                     method, url, *args, loop=loop + 1, **kwargs
                 ) as result:
                     yield result
-            elif loop >= 2:
+            elif needs_retry:
                 _LOGGER.error(
                     "%s - Error %s - %s",
                     response.request_info.url,
