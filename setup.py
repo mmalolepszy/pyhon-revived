@@ -7,7 +7,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="pyhon-revived",
-    version="0.19.0",
+    version="0.19.1",
     author="Andre Basche, Michał Małolepszy",
     description="Control hOn devices with python",
     long_description=long_description,
