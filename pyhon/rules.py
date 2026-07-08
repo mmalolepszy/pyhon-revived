@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import logging
 from typing import List, Dict, TYPE_CHECKING, Any, Optional
 
 from pyhon.parameter.enum import HonParameterEnum
@@ -8,6 +9,8 @@ from pyhon.typedefs import Parameter
 if TYPE_CHECKING:
     from pyhon.commands import HonCommand
     from pyhon.parameter.base import HonParameter
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -31,7 +34,8 @@ class HonRuleSet:
 
     def _parse_rule(self, rule: Dict[str, Any]) -> None:
         for param_key, params in rule.items():
-            param_key = self._command.appliance.options.get(param_key, param_key)
+            resolved_key = self._command.appliance.options.get(param_key, param_key)
+            param_key = resolved_key
             for trigger_key, trigger_data in params.items():
                 self._parse_conditions(param_key, trigger_key, trigger_data)
 
@@ -42,8 +46,10 @@ class HonRuleSet:
         trigger_data: Dict[str, Any],
         extra: Optional[Dict[str, str]] = None,
     ) -> None:
+        raw_trigger_key = trigger_key
         trigger_key = trigger_key.replace("@", "")
         trigger_key = self._command.appliance.options.get(trigger_key, trigger_key)
+
         for multi_trigger_value, param_data in trigger_data.items():
             for trigger_value in multi_trigger_value.split("|"):
                 if isinstance(param_data, dict) and "typology" in param_data:
@@ -51,11 +57,19 @@ class HonRuleSet:
                         param_key, trigger_key, trigger_value, param_data, extra
                     )
                 elif isinstance(param_data, dict):
-                    if extra is None:
-                        extra = {}
-                    extra[trigger_key] = trigger_value
-                    for extra_key, extra_data in param_data.items():
-                        self._parse_conditions(param_key, extra_key, extra_data, extra)
+                    # A dict whose values are all scalars is a range/property modifier
+                    # (e.g. {'maximumValue': '250'}), not a nested trigger level.
+                    if all(not isinstance(v, dict) for v in param_data.values()):
+                        self._create_rule(
+                            param_key, trigger_key, trigger_value,
+                            {"typology": "range_modifier", **param_data}, extra,
+                        )
+                    else:
+                        if extra is None:
+                            extra = {}
+                        extra[trigger_key] = trigger_value
+                        for extra_key, extra_data in param_data.items():
+                            self._parse_conditions(param_key, extra_key, extra_data, extra)
                 else:
                     param_data = {"typology": "fixed", "fixedValue": param_data}
                     self._create_rule(
@@ -123,6 +137,16 @@ class HonRuleSet:
         if default_value := rule.param_data.get("defaultValue"):
             param.value = default_value
 
+    def _apply_range_modifier(self, param: Parameter, rule: HonRule) -> None:
+        if not isinstance(param, HonParameterRange):
+            return
+        if (max_val := rule.param_data.get("maximumValue")) is not None:
+            param.max = float(max_val)
+        if (min_val := rule.param_data.get("minimumValue")) is not None:
+            param.min = float(min_val)
+        if (step_val := rule.param_data.get("incrementValue")) is not None:
+            param.step = float(step_val)
+
     def _add_trigger(self, parameter: "HonParameter", data: HonRule) -> None:
         def apply(rule: HonRule) -> None:
             if not self._extra_rules_matches(rule):
@@ -133,6 +157,8 @@ class HonRuleSet:
                 self._apply_fixed(param, fixed_value)
             elif rule.param_data.get("typology") == "enum":
                 self._apply_enum(param, rule)
+            elif rule.param_data.get("typology") == "range_modifier":
+                self._apply_range_modifier(param, rule)
 
         parameter.add_trigger(data.trigger_value, apply, data)
 

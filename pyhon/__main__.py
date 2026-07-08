@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import os
 import asyncio
 import json
 import logging
@@ -15,6 +16,12 @@ if __name__ == "__main__":
 from pyhon import Hon, HonAPI, diagnose, printer
 
 _LOGGER = logging.getLogger(__name__)
+
+log_level = logging.DEBUG if os.getenv("PYHON_DEBUG") else logging.WARNING
+logging.basicConfig(
+    level=log_level,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 
 
 def get_arguments() -> Dict[str, Any]:
