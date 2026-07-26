@@ -84,7 +84,13 @@ class HonAppliance:
 
     def __getitem__(self, item: str) -> Any:
         if self._zone:
-            item += f"Z{self._zone}"
+            try:
+                return self._get_item(f"{item}Z{self._zone}")
+            except (KeyError, IndexError):
+                pass
+        return self._get_item(item)
+
+    def _get_item(self, item: str) -> Any:
         if "." in item:
             return self._get_nested_item(item)
         if item in self.data:
