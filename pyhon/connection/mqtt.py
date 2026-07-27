@@ -151,6 +151,7 @@ class MQTTClient:
             on_lifecycle_connection_failure=self._on_lifecycle_connection_failure,
             on_lifecycle_disconnection=self._on_lifecycle_disconnection,
             on_publish_received=self._on_publish_received,
+            enable_metrics_collection=False
         )
 
     def _subscribe_appliances(self) -> None:
