@@ -46,7 +46,6 @@ class HonRuleSet:
         trigger_data: Dict[str, Any],
         extra: Optional[Dict[str, str]] = None,
     ) -> None:
-        raw_trigger_key = trigger_key
         trigger_key = trigger_key.replace("@", "")
         trigger_key = self._command.appliance.options.get(trigger_key, trigger_key)
 
@@ -61,15 +60,20 @@ class HonRuleSet:
                     # (e.g. {'maximumValue': '250'}), not a nested trigger level.
                     if all(not isinstance(v, dict) for v in param_data.values()):
                         self._create_rule(
-                            param_key, trigger_key, trigger_value,
-                            {"typology": "range_modifier", **param_data}, extra,
+                            param_key,
+                            trigger_key,
+                            trigger_value,
+                            {"typology": "range_modifier", **param_data},
+                            extra,
                         )
                     else:
                         if extra is None:
                             extra = {}
                         extra[trigger_key] = trigger_value
                         for extra_key, extra_data in param_data.items():
-                            self._parse_conditions(param_key, extra_key, extra_data, extra)
+                            self._parse_conditions(
+                                param_key, extra_key, extra_data, extra
+                            )
                 else:
                     param_data = {"typology": "fixed", "fixedValue": param_data}
                     self._create_rule(

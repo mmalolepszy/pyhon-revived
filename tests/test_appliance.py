@@ -15,7 +15,9 @@ from pyhon.attributes import HonAttribute
 
 def make_appliance(zone: int = 0) -> HonAppliance:
     appliance = HonAppliance(
-        None, {"applianceTypeId": 3, "macAddress": "aa-bb-cc-dd-ee-ff", "zone": "4"}, zone=zone
+        None,
+        {"applianceTypeId": 3, "macAddress": "aa-bb-cc-dd-ee-ff", "zone": "4"},
+        zone=zone,
     )
     appliance._attributes = {
         "parameters": {
@@ -47,7 +49,9 @@ def test_dotted_parameter_returns_unwrapped_value():
 
 def test_dotted_and_undotted_parameter_access_agree():
     appliance = make_appliance(zone=1)
-    assert appliance.get("onOffStatus") == appliance.get("attributes.parameters.onOffStatus")
+    assert appliance.get("onOffStatus") == appliance.get(
+        "attributes.parameters.onOffStatus"
+    )
 
 
 def test_zone_suffix_applied_to_dotted_lookup():

@@ -58,9 +58,9 @@ async def test_appliance_has_start_program_command(appliance_id: str) -> None:
     await appliance.create()
     await appliance.load_commands()
 
-    assert "startProgram" in appliance.commands, (
-        f"{appliance_id}: startProgram command missing"
-    )
+    assert (
+        "startProgram" in appliance.commands
+    ), f"{appliance_id}: startProgram command missing"
 
 
 @pytest.mark.asyncio
@@ -77,9 +77,9 @@ async def test_appliance_settings_access_returns_unwrapped(appliance_id: str) ->
     # Iterate over every setting and check it can be read without raising
     for key, param in appliance.settings.items():
         value = param.value
-        assert not isinstance(value, HonAttribute), (
-            f"{appliance_id}.{key}: value is still a HonAttribute wrapper"
-        )
+        assert not isinstance(
+            value, HonAttribute
+        ), f"{appliance_id}.{key}: value is still a HonAttribute wrapper"
 
 
 @pytest.mark.asyncio
@@ -94,6 +94,6 @@ async def test_appliance_attributes_access_returns_unwrapped(appliance_id: str) 
 
     for key in appliance.attributes.get("parameters", {}):
         value = appliance.get(f"attributes.parameters.{key}")
-        assert not isinstance(value, HonAttribute), (
-            f"{appliance_id}.attributes.parameters.{key}: value is still wrapped"
-        )
+        assert not isinstance(
+            value, HonAttribute
+        ), f"{appliance_id}.attributes.parameters.{key}: value is still wrapped"
