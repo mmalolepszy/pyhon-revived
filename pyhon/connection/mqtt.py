@@ -81,7 +81,9 @@ class MQTTClient:
             mqtt5.ConnectReasonCode.NOT_AUTHORIZED,
             mqtt5.ConnectReasonCode.BAD_USERNAME_OR_PASSWORD,
         ):
-            _LOGGER.info("MQTT connection rejected as unauthorized, will re-authenticate")
+            _LOGGER.info(
+                "MQTT connection rejected as unauthorized, will re-authenticate"
+            )
             self._needs_reauth = True
             if self._client is not None:
                 # Stop the client's own reconnect loop immediately, otherwise it
@@ -151,7 +153,7 @@ class MQTTClient:
             on_lifecycle_connection_failure=self._on_lifecycle_connection_failure,
             on_lifecycle_disconnection=self._on_lifecycle_disconnection,
             on_publish_received=self._on_publish_received,
-            enable_metrics_collection=False
+            enable_metrics_collection=False,
         )
 
     def _subscribe_appliances(self) -> None:
@@ -161,7 +163,6 @@ class MQTTClient:
             self._subscribed = True
         except Exception as e:
             _LOGGER.error("Error subscribing to appliances: %s - %s", repr(e), str(e))
-
 
     def _subscribe(self, appliance: HonAppliance) -> None:
         for topic in appliance.info.get("topics", {}).get("subscribe", []):

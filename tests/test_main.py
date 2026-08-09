@@ -7,8 +7,6 @@ with action="store_true" raise ValueError.
 import sys
 from unittest.mock import patch
 
-import pytest
-
 from pyhon.__main__ import get_arguments
 
 
@@ -70,7 +68,9 @@ class TestGetArguments:
             assert "translate" not in args
 
     def test_user_password_flags(self):
-        with patch.object(sys, "argv", ["pyhon", "-u", "test@example.com", "-p", "secret"]):
+        with patch.object(
+            sys, "argv", ["pyhon", "-u", "test@example.com", "-p", "secret"]
+        ):
             args = get_arguments()
             assert args["user"] == "test@example.com"
             assert args["password"] == "secret"
