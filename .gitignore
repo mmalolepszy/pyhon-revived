@@ -10,3 +10,4 @@ test_*
 build/
 .vscode/
 
+tests/__pycache__/

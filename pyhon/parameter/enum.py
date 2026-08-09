@@ -6,6 +6,7 @@ from pyhon.parameter.base import HonParameter
 
 _LOGGER = logging.getLogger(__name__)
 
+
 def clean_value(value: str | float) -> str:
     return str(value).strip("[]").replace("|", "_").lower()
 
@@ -44,9 +45,7 @@ class HonParameterEnum(HonParameter):
         self._values = values
         if self._default and clean_value(self._default.strip("[]")) not in self.values:
             self._values.append(self._default)
-        _LOGGER.info(
-            "Set values of %s to %s", str(self._key), str(self._values)
-        )
+        _LOGGER.info("Set values of %s to %s", str(self._key), str(self._values))
 
     @property
     def intern_value(self) -> str:
