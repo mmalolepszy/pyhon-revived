@@ -133,7 +133,10 @@ class HonRuleSet:
         if not isinstance(param, HonParameterEnum):
             return
         if enum_values := rule.param_data.get("enumValues"):
-            param.values = enum_values.split("|")
+            if isinstance(enum_values, list):
+                param.values = [str(value) for value in enum_values]
+            else:
+                param.values = str(enum_values).split("|")
         if default_value := rule.param_data.get("defaultValue"):
             param.value = default_value
 
