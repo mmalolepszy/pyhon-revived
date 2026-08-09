@@ -18,7 +18,7 @@ This directory contains the pyhon-revived test suite.
 
 ```bash
 # Clone with the submodule
-git clone --recurse-submodules ssh://git@ade.alele.lan:2222/odyno/pyhon-revived.git
+git clone --recurse-submodules <THIS_REPO>
 cd pyhon-revived
 
 # Or if you already cloned without submodules
