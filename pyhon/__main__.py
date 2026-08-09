@@ -31,10 +31,10 @@ def get_arguments() -> Dict[str, Any]:
     parser.add_argument("-p", "--password", help="password for haier hOn account")
     subparser = parser.add_subparsers(title="commands", metavar="COMMAND")
     keys = subparser.add_parser("keys", help="print as key format")
-    keys.add_argument("keys", help="print as key format", action="store_true")
+    keys.set_defaults(command="keys")
     keys.add_argument("--all", help="print also full keys", action="store_true")
-    export = subparser.add_parser("export")
-    export.add_argument("export", help="export pyhon data", action="store_true")
+    export = subparser.add_parser("export", help="export pyhon data")
+    export.set_defaults(command="export")
     export.add_argument("--zip", help="create zip archive", action="store_true")
     export.add_argument("--anonymous", help="anonymize data", action="store_true")
     export.add_argument("directory", nargs="?", default=Path().cwd())
@@ -85,7 +85,7 @@ async def main() -> None:
     test_data_path = Path(path) if (path := args.get("import", "")) else None
     async with Hon(*get_login_data(args), test_data_path=test_data_path) as hon:
         for device in hon.appliances:
-            if args.get("export"):
+            if args.get("command") == "export":
                 anonymous = args.get("anonymous", False)
                 path = Path(args.get("directory", "."))
                 if not args.get("zip"):
@@ -98,7 +98,7 @@ async def main() -> None:
             title = (
                 f"{'=' * 10} {device.appliance_type} - {device.nick_name} {'=' * 10}"
             )
-            if args.get("keys"):
+            if args.get("command") == "keys":
                 print(title)
                 data = device.data.copy()
                 attr = "get" if args.get("all") else "pop"

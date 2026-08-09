@@ -1,0 +1,3 @@
+[submodule "tests/hon-test-data"]
+	path = tests/hon-test-data
+	url = https://github.com/mmalolepszy/hon-test-data.git

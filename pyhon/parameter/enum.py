@@ -25,7 +25,11 @@ class HonParameterEnum(HonParameter):
         self._default = self._attributes.get("defaultValue", "")
         self._value = self._default or "0"
         self._values = self._attributes.get("enumValues", []) or []
-        if not isinstance(self._values, list):
+        # Haier sometimes sends enumValues as a pipe-separated string
+        # (e.g. "2|4|5|6") instead of a proper list. Normalize to list.
+        if isinstance(self._values, str):
+            self._values = self._values.split("|")
+        elif not isinstance(self._values, list):
             self._values = [self._values]
 
     def __repr__(self) -> str:

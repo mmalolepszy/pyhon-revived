@@ -4,9 +4,9 @@ venv/
 __pycache__/
 dist/
 **/*.egg-info/
-test*
+test_*
 !tests/
-!tests/*.py
+!tests/**
 build/
 .vscode/
 
