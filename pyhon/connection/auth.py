@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import hashlib
 import logging
@@ -41,6 +42,7 @@ class HonAuth:
         self._email = email
         self._password = password
         self._device = device
+        self._refresh_lock = asyncio.Lock()
         self._expires: datetime = datetime.utcnow()
         self._auth = HonAuthData()
         self._session_id = ""
@@ -159,21 +161,27 @@ class HonAuth:
         still work at least 24h after login). Try that cheap path first, and
         only fall back to a full credentials-based ``authenticate()`` once the
         cached session has actually expired or none is cached yet.
+
+        Serialized via lock: concurrent callers (e.g. a parallel
+        ``asyncio.gather`` of API requests plus an MQTT token load) must not
+        trigger multiple logins or replay the same session_id twice - the
+        server may invalidate the pair on first replay.
         """
-        if refresh_token:
-            self._auth.refresh_token = refresh_token
-        if self._session_id and self._code_verifier:
+        async with self._refresh_lock:
+            if refresh_token:
+                self._auth.refresh_token = refresh_token
+            if self._session_id and self._code_verifier:
+                try:
+                    if await self._get_tokens(self._session_id, self._code_verifier):
+                        self._expires = datetime.utcnow()
+                        return True
+                except exceptions.HonAuthenticationError:
+                    pass
             try:
-                if await self._get_tokens(self._session_id, self._code_verifier):
-                    self._expires = datetime.utcnow()
-                    return True
+                await self.authenticate()
             except exceptions.HonAuthenticationError:
-                pass
-        try:
-            await self.authenticate()
-        except exceptions.HonAuthenticationError:
-            return False
-        return True
+                return False
+            return True
 
     def clear(self) -> None:
         self._session.cookie_jar.clear_domain(const.API_URL.split("/")[-1])
