@@ -9,9 +9,10 @@ class Appliance(ApplianceBase):
     def attributes(self, data: Dict[str, Any]) -> Dict[str, Any]:
         data = super().attributes(data)
         if not self.parent.connection:
-            data["parameters"]["machMode"].value = "0"
+            if (mach := data.get("parameters", {}).get("machMode")) is not None:
+                mach.value = "0"
         data["active"] = bool(data.get("activity"))
-        data["pause"] = data["parameters"]["machMode"] == "3"
+        data["pause"] = self._param_value(data, "machMode") == 3
         return data
 
     def settings(self, settings: Dict[str, Any]) -> Dict[str, Any]:
