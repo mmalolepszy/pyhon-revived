@@ -1,9 +1,10 @@
+import asyncio
 import base64
 import hashlib
 import logging
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Tuple
 
 import aiohttp
@@ -41,7 +42,8 @@ class HonAuth:
         self._email = email
         self._password = password
         self._device = device
-        self._expires: datetime = datetime.utcnow()
+        self._refresh_lock = asyncio.Lock()
+        self._expires: datetime = datetime.now(timezone.utc)
         self._auth = HonAuthData()
         self._session_id = ""
         self._code_verifier = ""
@@ -63,7 +65,7 @@ class HonAuth:
         return self._auth.refresh_token
 
     def _check_token_expiration(self, hours: int) -> bool:
-        return datetime.utcnow() >= self._expires + timedelta(hours=hours)
+        return datetime.now(timezone.utc) >= self._expires + timedelta(hours=hours)
 
     @property
     def token_is_expired(self) -> bool:
@@ -77,7 +79,9 @@ class HonAuth:
         output = "hOn Authentication Error\n"
         for i, (status, url) in enumerate(self._request.called_urls):
             output += f" {i + 1: 2d}     {status} - {url}\n"
-        output += f"ERROR - {response.status} - {redact_url(response.request_info.url)}\n"
+        output += (
+            f"ERROR - {response.status} - {redact_url(response.request_info.url)}\n"
+        )
         output += f"{15 * '='} Response {15 * '='}\n{await response.text()}\n{40 * '='}"
         _LOGGER.error(output)
         if fail:
@@ -146,7 +150,7 @@ class HonAuth:
             raise exceptions.HonAuthenticationError("Can't get api token")
         self._session_id = session_id
         self._code_verifier = code_verifier
-        self._expires = datetime.utcnow()
+        self._expires = datetime.now(timezone.utc)
 
     async def refresh(self, refresh_token: str = "") -> bool:
         """Refresh the session.
@@ -157,21 +161,27 @@ class HonAuth:
         still work at least 24h after login). Try that cheap path first, and
         only fall back to a full credentials-based ``authenticate()`` once the
         cached session has actually expired or none is cached yet.
+
+        Serialized via lock: concurrent callers (e.g. a parallel
+        ``asyncio.gather`` of API requests plus an MQTT token load) must not
+        trigger multiple logins or replay the same session_id twice - the
+        server may invalidate the pair on first replay.
         """
-        if refresh_token:
-            self._auth.refresh_token = refresh_token
-        if self._session_id and self._code_verifier:
+        async with self._refresh_lock:
+            if refresh_token:
+                self._auth.refresh_token = refresh_token
+            if self._session_id and self._code_verifier:
+                try:
+                    if await self._get_tokens(self._session_id, self._code_verifier):
+                        self._expires = datetime.now(timezone.utc)
+                        return True
+                except exceptions.HonAuthenticationError:
+                    pass
             try:
-                if await self._get_tokens(self._session_id, self._code_verifier):
-                    self._expires = datetime.utcnow()
-                    return True
+                await self.authenticate()
             except exceptions.HonAuthenticationError:
-                pass
-        try:
-            await self.authenticate()
-        except exceptions.HonAuthenticationError:
-            return False
-        return True
+                return False
+            return True
 
     def clear(self) -> None:
         self._session.cookie_jar.clear_domain(const.API_URL.split("/")[-1])

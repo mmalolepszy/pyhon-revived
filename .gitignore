@@ -1,8 +1,13 @@
 .idea/
 venv/
+.venv/
 __pycache__/
 dist/
 **/*.egg-info/
-test*
+test_*
+!tests/
+!tests/**
 build/
 .vscode/
+
+tests/__pycache__/

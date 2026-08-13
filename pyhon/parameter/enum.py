@@ -6,6 +6,7 @@ from pyhon.parameter.base import HonParameter
 
 _LOGGER = logging.getLogger(__name__)
 
+
 def clean_value(value: str | float) -> str:
     return str(value).strip("[]").replace("|", "_").lower()
 
@@ -24,7 +25,13 @@ class HonParameterEnum(HonParameter):
         super()._set_attributes()
         self._default = self._attributes.get("defaultValue", "")
         self._value = self._default or "0"
-        self._values = self._attributes.get("enumValues", [])
+        self._values = self._attributes.get("enumValues", []) or []
+        # Haier sometimes sends enumValues as a pipe-separated string
+        # (e.g. "2|4|5|6") instead of a proper list. Normalize to list.
+        if isinstance(self._values, str):
+            self._values = self._values.split("|")
+        elif not isinstance(self._values, list):
+            self._values = [self._values]
 
     def __repr__(self) -> str:
         return f"{self.__class__} (<{self.key}> {self.values})"
@@ -38,9 +45,7 @@ class HonParameterEnum(HonParameter):
         self._values = values
         if self._default and clean_value(self._default.strip("[]")) not in self.values:
             self._values.append(self._default)
-        _LOGGER.info(
-            "Set values of %s to %s", str(self._key), str(self._values)
-        )
+        _LOGGER.info("Set values of %s to %s", str(self._key), str(self._values))
 
     @property
     def intern_value(self) -> str:

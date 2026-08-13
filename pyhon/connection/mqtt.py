@@ -81,7 +81,9 @@ class MQTTClient:
             mqtt5.ConnectReasonCode.NOT_AUTHORIZED,
             mqtt5.ConnectReasonCode.BAD_USERNAME_OR_PASSWORD,
         ):
-            _LOGGER.info("MQTT connection rejected as unauthorized, will re-authenticate")
+            _LOGGER.info(
+                "MQTT connection rejected as unauthorized, will re-authenticate"
+            )
             self._needs_reauth = True
             if self._client is not None:
                 # Stop the client's own reconnect loop immediately, otherwise it
@@ -99,16 +101,29 @@ class MQTTClient:
     def _on_publish_received(self, data: mqtt5.PublishReceivedData) -> None:
         if not (data and data.publish_packet and data.publish_packet.payload):
             return
-        payload = json.loads(data.publish_packet.payload.decode())
+        try:
+            payload = json.loads(data.publish_packet.payload.decode())
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            _LOGGER.warning("Ignoring malformed MQTT payload", exc_info=True)
+            return
         topic = data.publish_packet.topic
         appliance = next(
-            a for a in self._appliances if topic in a.info["topics"]["subscribe"]
+            (
+                a
+                for a in self._appliances
+                if topic in a.info.get("topics", {}).get("subscribe", [])
+            ),
+            None,
         )
+        if appliance is None:
+            _LOGGER.debug("Received MQTT message on unknown topic %s", topic)
+            return
         if topic and "appliancestatus" in topic:
-            for parameter in payload["parameters"]:
-                appliance.attributes["parameters"][parameter["parName"]].update(
-                    parameter
-                )
+            for parameter in payload.get("parameters", []):
+                if attr := appliance.attributes.get("parameters", {}).get(
+                    parameter.get("parName")
+                ):
+                    attr.update(parameter)
             appliance.sync_params_to_command("settings")
         elif topic and "disconnected" in topic:
             _LOGGER.info(
@@ -123,11 +138,15 @@ class MQTTClient:
         elif topic and "discovery" in topic:
             _LOGGER.info("Discovered %s", appliance.nick_name)
         self._hon.notify()
-        _LOGGER.info("%s - %s", topic, payload)
+        _LOGGER.debug("%s - %s", topic, payload)
 
     async def _start(self) -> None:
         if self._client is not None:
-            self._client.stop()
+            try:
+                self._client.stop()
+            except Exception:  # noqa: BLE001 - client may already be dead
+                _LOGGER.debug("Error stopping previous MQTT client", exc_info=True)
+            self._client = None
         if self._needs_reauth:
             _LOGGER.info("Re-authenticating before reconnecting to mqtt")
             await self._api.auth.refresh()
@@ -151,7 +170,7 @@ class MQTTClient:
             on_lifecycle_connection_failure=self._on_lifecycle_connection_failure,
             on_lifecycle_disconnection=self._on_lifecycle_disconnection,
             on_publish_received=self._on_publish_received,
-            enable_metrics_collection=False
+            enable_metrics_collection=False,
         )
 
     def _subscribe_appliances(self) -> None:
@@ -162,7 +181,6 @@ class MQTTClient:
         except Exception as e:
             _LOGGER.error("Error subscribing to appliances: %s - %s", repr(e), str(e))
 
-
     def _subscribe(self, appliance: HonAppliance) -> None:
         for topic in appliance.info.get("topics", {}).get("subscribe", []):
             self.client.subscribe(
@@ -170,16 +188,42 @@ class MQTTClient:
             ).result(10)
             _LOGGER.info("Subscribed to topic %s", topic)
 
+    async def close(self) -> None:
+        """Stop the watchdog task and the MQTT client, releasing all resources."""
+        if self._watchdog_task is not None and not self._watchdog_task.done():
+            self._watchdog_task.cancel()
+            try:
+                await self._watchdog_task
+            except asyncio.CancelledError:
+                pass
+            self._watchdog_task = None
+        if self._client is not None:
+            try:
+                self._client.stop()
+            except Exception:  # noqa: BLE001 - client may already be dead
+                _LOGGER.debug("Error stopping MQTT client on close", exc_info=True)
+            self._client = None
+        self._connection = False
+
     async def start_watchdog(self) -> None:
         if not self._watchdog_task or self._watchdog_task.done():
             self._watchdog_task = asyncio.create_task(self._watchdog())
 
+    _WATCHDOG_INTERVAL = 5
+    _WATCHDOG_MAX_BACKOFF = 300
+
     async def _watchdog(self) -> None:
+        delay = self._WATCHDOG_INTERVAL
         while True:
-            await asyncio.sleep(5)
-            if not self._connection:
-                _LOGGER.info("Restart mqtt connection")
-                await self._start()
-            elif not self._subscribed:
-                _LOGGER.info("Resubscribing to appliance topics")
-                self._subscribe_appliances()
+            await asyncio.sleep(delay)
+            try:
+                if not self._connection:
+                    _LOGGER.info("Restart mqtt connection")
+                    await self._start()
+                elif not self._subscribed:
+                    _LOGGER.info("Resubscribing to appliance topics")
+                    self._subscribe_appliances()
+                delay = self._WATCHDOG_INTERVAL
+            except Exception:
+                _LOGGER.exception("MQTT watchdog error, retrying in %ds", delay)
+                delay = min(delay * 2, self._WATCHDOG_MAX_BACKOFF)

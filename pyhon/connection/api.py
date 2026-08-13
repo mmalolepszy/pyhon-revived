@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from pprint import pformat
 from types import TracebackType
@@ -213,7 +213,7 @@ class HonAPI:
         ancillary_parameters: Dict[str, Any],
         program_name: str = "",
     ) -> bool:
-        now: str = datetime.utcnow().isoformat()
+        now: str = datetime.now(timezone.utc).isoformat()
         data: Dict[str, Any] = {
             "macAddress": appliance.mac_address,
             "timestamp": f"{now[:-3]}Z",

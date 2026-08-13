@@ -65,17 +65,32 @@ class HonAppliance:
             self._extra = None
 
     def _get_nested_item(self, item: str) -> Any:
+        # Fast path: if the item contains numeric segments (e.g. "zone.1.temp"),
+        # try direct dict access first - some Haier responses nest zone data
+        # under the full dotted key rather than as nested dicts/lists.
+        if any(k in "0123456789" for k in item.split(".")):
+            try:
+                result = self.data[item]
+                return result.value if isinstance(result, HonAttribute) else result
+            except KeyError:
+                pass  # fall through to the standard nested walk
         result: List[Any] | Dict[str, Any] = self.data
         for key in item.split("."):
             if all(k in "0123456789" for k in key) and isinstance(result, list):
                 result = result[int(key)]
             elif isinstance(result, dict):
                 result = result[key]
-        return result
+        return result.value if isinstance(result, HonAttribute) else result
 
     def __getitem__(self, item: str) -> Any:
         if self._zone:
-            item += f"Z{self._zone}"
+            try:
+                return self._get_item(f"{item}Z{self._zone}")
+            except (KeyError, IndexError):
+                pass
+        return self._get_item(item)
+
+    def _get_item(self, item: str) -> Any:
         if "." in item:
             return self._get_nested_item(item)
         if item in self.data:
@@ -332,4 +347,12 @@ class HonAppliance:
             target.step = 1
         elif isinstance(target, HonParameterEnum):
             target.values = main.values
-        target.value = main.value
+        try:
+            target.value = main.value
+        except (ValueError, TypeError) as error:
+            _LOGGER.debug(
+                "Can't sync parameter %s -> %s: %s",
+                getattr(main, "key", main),
+                getattr(target, "key", target),
+                error,
+            )

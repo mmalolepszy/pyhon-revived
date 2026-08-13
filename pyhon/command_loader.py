@@ -188,6 +188,17 @@ class HonCommandLoader:
             if not base:
                 continue
             base_command: HonCommand = copy(base)
+            # `copy()` only shallow-copies the HonCommand: base_command.parameters
+            # would still be the *same* dict, holding the *same* parameter objects,
+            # as base.parameters. Every subsequent mutation below (favourite-specific
+            # overrides, the "favourite" marker, the program name) would then silently
+            # leak back into `base` and into every other favourite derived from the
+            # same base program - which is exactly why selecting one favourite could
+            # make the program name (or other settings) of an unrelated one change too.
+            # Give this favourite its own independent parameter objects instead.
+            base_command._parameters = {
+                key: copy(parameter) for key, parameter in base.parameters.items()
+            }
             self._update_base_command_with_data(base_command, favourite)
             self._update_base_command_with_favourite(base_command)
             self._update_program_categories(command_name, name, base_command)
@@ -199,7 +210,9 @@ class HonCommandLoader:
         command = favourite.get("command", {})
         command_name: str = command.get("commandName", "")
         program_name = self._clean_name(command.get("programName", ""))
-        base_command = self.commands[command_name].categories.get(program_name)
+        if not (cmd := self.commands.get(command_name)):
+            return name, command_name, None
+        base_command = cmd.categories.get(program_name)
         return name, command_name, base_command
 
     def _update_base_command_with_data(
@@ -208,7 +221,24 @@ class HonCommandLoader:
         for data in command.values():
             if isinstance(data, str):
                 continue
+            # Haier nests the actual per-favourite override values (e.g.
+            # dirtyLevel, temp, spinSpeed) one level deeper, inside
+            # data["parameters"], not directly in `data` itself. Without this,
+            # every favourite built from the same base program (e.g. all
+            # "resistant_cotton" favourites) silently kept the base program's
+            # generic default temp/dirtyLevel/etc. instead of its own saved
+            # values - selecting different favourites appeared to have no
+            # effect on these settings at all.
+            for key, value in data.get("parameters", {}).items():
+                if not (parameter := base_command.parameters.get(key)):
+                    continue
+                with suppress(ValueError):
+                    parameter.value = value
+            # Keep the previous (shallow) behaviour too, in case a caller
+            # ever passes an already-flattened dict.
             for key, value in data.items():
+                if isinstance(value, dict):
+                    continue
                 if not (parameter := base_command.parameters.get(key)):
                     continue
                 with suppress(ValueError):
@@ -221,7 +251,7 @@ class HonCommandLoader:
     def _update_program_categories(
         self, command_name: str, name: str, base_command: HonCommand
     ) -> None:
-        program = base_command.parameters["program"]
+        program = base_command.parameters.get("program")
         if isinstance(program, HonParameterProgram):
             program.set_value(name)
         self.commands[command_name].categories[name] = base_command
