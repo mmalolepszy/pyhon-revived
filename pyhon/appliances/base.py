@@ -1,5 +1,6 @@
 from typing import Dict, Any, TYPE_CHECKING
 
+from pyhon.attributes import HonAttribute
 from pyhon.parameter.program import HonParameterProgram
 
 if TYPE_CHECKING:
@@ -9,6 +10,12 @@ if TYPE_CHECKING:
 class ApplianceBase:
     def __init__(self, appliance: "HonAppliance"):
         self.parent = appliance
+
+    @staticmethod
+    def _param_value(data: Dict[str, Any], key: str) -> Any:
+        """Unwrap a HonAttribute (or raw value) from the parameters dict."""
+        param = data.get("parameters", {}).get(key)
+        return param.value if isinstance(param, HonAttribute) else param
 
     def attributes(self, data: Dict[str, Any]) -> Dict[str, Any]:
         program_name = "No Program"
