@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Final, Dict
 
 from pyhon.helper import str_to_float
@@ -36,13 +36,13 @@ class HonAttribute:
         if not self._lock_timestamp:
             return False
         lock_until = self._lock_timestamp + timedelta(seconds=self._LOCK_TIMEOUT)
-        return lock_until >= datetime.utcnow()
+        return lock_until >= datetime.now(timezone.utc)
 
     def update(self, data: Dict[str, str] | str, shield: bool = False) -> bool:
         if self.lock and not shield:
             return False
         if shield:
-            self._lock_timestamp = datetime.utcnow()
+            self._lock_timestamp = datetime.now(timezone.utc)
         if isinstance(data, str):
             self.value = data
             return True

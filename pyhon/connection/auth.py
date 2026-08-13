@@ -4,7 +4,7 @@ import hashlib
 import logging
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Tuple
 
 import aiohttp
@@ -43,7 +43,7 @@ class HonAuth:
         self._password = password
         self._device = device
         self._refresh_lock = asyncio.Lock()
-        self._expires: datetime = datetime.utcnow()
+        self._expires: datetime = datetime.now(timezone.utc)
         self._auth = HonAuthData()
         self._session_id = ""
         self._code_verifier = ""
@@ -65,7 +65,7 @@ class HonAuth:
         return self._auth.refresh_token
 
     def _check_token_expiration(self, hours: int) -> bool:
-        return datetime.utcnow() >= self._expires + timedelta(hours=hours)
+        return datetime.now(timezone.utc) >= self._expires + timedelta(hours=hours)
 
     @property
     def token_is_expired(self) -> bool:
@@ -150,7 +150,7 @@ class HonAuth:
             raise exceptions.HonAuthenticationError("Can't get api token")
         self._session_id = session_id
         self._code_verifier = code_verifier
-        self._expires = datetime.utcnow()
+        self._expires = datetime.now(timezone.utc)
 
     async def refresh(self, refresh_token: str = "") -> bool:
         """Refresh the session.
@@ -173,7 +173,7 @@ class HonAuth:
             if self._session_id and self._code_verifier:
                 try:
                     if await self._get_tokens(self._session_id, self._code_verifier):
-                        self._expires = datetime.utcnow()
+                        self._expires = datetime.now(timezone.utc)
                         return True
                 except exceptions.HonAuthenticationError:
                     pass
