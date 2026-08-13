@@ -101,16 +101,29 @@ class MQTTClient:
     def _on_publish_received(self, data: mqtt5.PublishReceivedData) -> None:
         if not (data and data.publish_packet and data.publish_packet.payload):
             return
-        payload = json.loads(data.publish_packet.payload.decode())
+        try:
+            payload = json.loads(data.publish_packet.payload.decode())
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            _LOGGER.warning("Ignoring malformed MQTT payload", exc_info=True)
+            return
         topic = data.publish_packet.topic
         appliance = next(
-            a for a in self._appliances if topic in a.info["topics"]["subscribe"]
+            (
+                a
+                for a in self._appliances
+                if topic in a.info.get("topics", {}).get("subscribe", [])
+            ),
+            None,
         )
+        if appliance is None:
+            _LOGGER.debug("Received MQTT message on unknown topic %s", topic)
+            return
         if topic and "appliancestatus" in topic:
-            for parameter in payload["parameters"]:
-                appliance.attributes["parameters"][parameter["parName"]].update(
-                    parameter
-                )
+            for parameter in payload.get("parameters", []):
+                if attr := appliance.attributes.get("parameters", {}).get(
+                    parameter.get("parName")
+                ):
+                    attr.update(parameter)
             appliance.sync_params_to_command("settings")
         elif topic and "disconnected" in topic:
             _LOGGER.info(
