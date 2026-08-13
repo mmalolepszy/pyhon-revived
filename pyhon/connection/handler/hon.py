@@ -57,6 +57,20 @@ class HonConnectionHandler(ConnectionHandler):
         )
         return self
 
+    async def _reauthenticate(self) -> None:
+        """Force a fresh login without discarding the HonAuth instance.
+
+        Recreating HonAuth from scratch (as a bare create() would do)
+        wipes the cached session_id/code_verifier pair, permanently
+        losing the cheap session-replay refresh path and forcing a full
+        credentials login on every subsequent refresh.
+        """
+        if self._auth is None:
+            await self.create()
+            return
+        self._auth.clear()
+        await self._auth.authenticate()
+
     async def _check_headers(self, headers: Dict[str, str]) -> Dict[str, str]:
         if not (self.auth.cognito_token and self.auth.id_token):
             await self.auth.authenticate()
@@ -92,7 +106,7 @@ class HonConnectionHandler(ConnectionHandler):
                     response.status,
                     await response.text(),
                 )
-                await self.create()
+                await self._reauthenticate()
                 async with self._intercept(
                     method, url, *args, loop=loop + 1, **kwargs
                 ) as result:

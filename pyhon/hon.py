@@ -109,16 +109,16 @@ class Hon:
                         appliance.copy(), self.api, zone=zone + 1
                     )
             await self._create_appliance(appliance, self.api)
-        if (
-            self._test_data_path
-            and (
-                test_data := self._test_data_path / "hon-test-data" / "test_data"
-            ).exists()
-            or (test_data := test_data / "..").exists()
-        ):
-            api = TestAPI(test_data)
-            for appliance in await api.load_appliances():
-                await self._create_appliance(appliance, api)
+        if self._test_data_path:
+            test_data = self._test_data_path / "hon-test-data" / "test_data"
+            if not test_data.exists() and (parent := test_data.parent).exists():
+                # Fallback: hon-test-data/test_data may live one level up
+                # when test_data_path points directly at the test_data dir.
+                test_data = parent
+            if test_data.exists():
+                api = TestAPI(test_data)
+                for appliance in await api.load_appliances():
+                    await self._create_appliance(appliance, api)
         if not self._mqtt_client:
             self._mqtt_client = await MQTTClient(self, self._mobile_id).create()
 
@@ -130,4 +130,7 @@ class Hon:
             self._notify_function(None)
 
     async def close(self) -> None:
+        if self._mqtt_client is not None:
+            await self._mqtt_client.close()
+            self._mqtt_client = None
         await self.api.close()

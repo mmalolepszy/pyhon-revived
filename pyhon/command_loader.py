@@ -210,7 +210,9 @@ class HonCommandLoader:
         command = favourite.get("command", {})
         command_name: str = command.get("commandName", "")
         program_name = self._clean_name(command.get("programName", ""))
-        base_command = self.commands[command_name].categories.get(program_name)
+        if not (cmd := self.commands.get(command_name)):
+            return name, command_name, None
+        base_command = cmd.categories.get(program_name)
         return name, command_name, base_command
 
     def _update_base_command_with_data(
@@ -249,7 +251,7 @@ class HonCommandLoader:
     def _update_program_categories(
         self, command_name: str, name: str, base_command: HonCommand
     ) -> None:
-        program = base_command.parameters["program"]
+        program = base_command.parameters.get("program")
         if isinstance(program, HonParameterProgram):
             program.set_value(name)
         self.commands[command_name].categories[name] = base_command

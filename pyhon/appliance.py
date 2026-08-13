@@ -347,4 +347,12 @@ class HonAppliance:
             target.step = 1
         elif isinstance(target, HonParameterEnum):
             target.values = main.values
-        target.value = main.value
+        try:
+            target.value = main.value
+        except (ValueError, TypeError) as error:
+            _LOGGER.debug(
+                "Can't sync parameter %s -> %s: %s",
+                getattr(main, "key", main),
+                getattr(target, "key", target),
+                error,
+            )
