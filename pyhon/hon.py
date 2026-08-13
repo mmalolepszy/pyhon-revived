@@ -130,4 +130,7 @@ class Hon:
             self._notify_function(None)
 
     async def close(self) -> None:
+        if self._mqtt_client is not None:
+            await self._mqtt_client.close()
+            self._mqtt_client = None
         await self.api.close()

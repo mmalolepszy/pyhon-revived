@@ -175,6 +175,23 @@ class MQTTClient:
             ).result(10)
             _LOGGER.info("Subscribed to topic %s", topic)
 
+    async def close(self) -> None:
+        """Stop the watchdog task and the MQTT client, releasing all resources."""
+        if self._watchdog_task is not None and not self._watchdog_task.done():
+            self._watchdog_task.cancel()
+            try:
+                await self._watchdog_task
+            except asyncio.CancelledError:
+                pass
+            self._watchdog_task = None
+        if self._client is not None:
+            try:
+                self._client.stop()
+            except Exception:  # noqa: BLE001 - client may already be dead
+                _LOGGER.debug("Error stopping MQTT client on close", exc_info=True)
+            self._client = None
+        self._connection = False
+
     async def start_watchdog(self) -> None:
         if not self._watchdog_task or self._watchdog_task.done():
             self._watchdog_task = asyncio.create_task(self._watchdog())
