@@ -129,7 +129,11 @@ class MQTTClient:
 
     async def _start(self) -> None:
         if self._client is not None:
-            self._client.stop()
+            try:
+                self._client.stop()
+            except Exception:  # noqa: BLE001 - client may already be dead
+                _LOGGER.debug("Error stopping previous MQTT client", exc_info=True)
+            self._client = None
         if self._needs_reauth:
             _LOGGER.info("Re-authenticating before reconnecting to mqtt")
             await self._api.auth.refresh()
@@ -175,12 +179,21 @@ class MQTTClient:
         if not self._watchdog_task or self._watchdog_task.done():
             self._watchdog_task = asyncio.create_task(self._watchdog())
 
+    _WATCHDOG_INTERVAL = 5
+    _WATCHDOG_MAX_BACKOFF = 300
+
     async def _watchdog(self) -> None:
+        delay = self._WATCHDOG_INTERVAL
         while True:
-            await asyncio.sleep(5)
-            if not self._connection:
-                _LOGGER.info("Restart mqtt connection")
-                await self._start()
-            elif not self._subscribed:
-                _LOGGER.info("Resubscribing to appliance topics")
-                self._subscribe_appliances()
+            await asyncio.sleep(delay)
+            try:
+                if not self._connection:
+                    _LOGGER.info("Restart mqtt connection")
+                    await self._start()
+                elif not self._subscribed:
+                    _LOGGER.info("Resubscribing to appliance topics")
+                    self._subscribe_appliances()
+                delay = self._WATCHDOG_INTERVAL
+            except Exception:
+                _LOGGER.exception("MQTT watchdog error, retrying in %ds", delay)
+                delay = min(delay * 2, self._WATCHDOG_MAX_BACKOFF)
