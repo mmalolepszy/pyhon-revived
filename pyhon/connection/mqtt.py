@@ -138,7 +138,7 @@ class MQTTClient:
         elif topic and "discovery" in topic:
             _LOGGER.info("Discovered %s", appliance.nick_name)
         self._hon.notify()
-        _LOGGER.info("%s - %s", topic, payload)
+        _LOGGER.debug("%s - %s", topic, payload)
 
     async def _start(self) -> None:
         if self._client is not None:
