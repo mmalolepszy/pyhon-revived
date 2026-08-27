@@ -177,9 +177,22 @@ class MQTTClient:
     async def _watchdog(self) -> None:
         while True:
             await asyncio.sleep(5)
-            if not self._connection:
-                _LOGGER.info("Restart mqtt connection")
-                await self._start()
-            elif not self._subscribed:
-                _LOGGER.info("Resubscribing to appliance topics")
-                self._subscribe_appliances()
+            try:
+                if not self._connection:
+                    _LOGGER.info("Restart mqtt connection")
+                    await self._start()
+                    # Give the fresh client time to finish its handshake before
+                    # the next check, otherwise it gets torn down and rebuilt
+                    # every 5 seconds while still connecting.
+                    await asyncio.sleep(25)
+                elif not self._subscribed:
+                    _LOGGER.info("Resubscribing to appliance topics")
+                    self._subscribe_appliances()
+            except Exception as error:  # pylint: disable=broad-except
+                # A transient failure inside _start() (token refresh, AWS token
+                # fetch, client build) used to escape and kill this task
+                # silently; the connection was then never restarted and all
+                # updates stopped until a manual reload. Log and keep going.
+                _LOGGER.warning(
+                    "MQTT watchdog iteration failed, retrying: %r", error
+                )
