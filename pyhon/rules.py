@@ -44,6 +44,8 @@ class HonRuleSet:
     ) -> None:
         trigger_key = trigger_key.replace("@", "")
         trigger_key = self._command.appliance.options.get(trigger_key, trigger_key)
+        if not isinstance(trigger_data, dict):
+            return
         for multi_trigger_value, param_data in trigger_data.items():
             for trigger_value in multi_trigger_value.split("|"):
                 if isinstance(param_data, dict) and "typology" in param_data:
