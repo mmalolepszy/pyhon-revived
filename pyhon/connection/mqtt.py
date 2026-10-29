@@ -109,6 +109,7 @@ class MQTTClient:
                 appliance.attributes["parameters"][parameter["parName"]].update(
                     parameter
                 )
+            appliance.refresh_derived_attributes()
             appliance.sync_params_to_command("settings")
         elif topic and "disconnected" in topic:
             _LOGGER.info(
