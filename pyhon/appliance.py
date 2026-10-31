@@ -212,6 +212,11 @@ class HonAppliance:
                     values
                 )
         self._attributes |= attributes
+        if category := attributes.get("lastConnEvent", {}).get("category"):
+            self._connection = category != "DISCONNECTED"
+        self.refresh_derived_attributes()
+
+    def refresh_derived_attributes(self) -> None:
         if self._extra:
             self._attributes = self._extra.attributes(self._attributes)
 
