@@ -45,10 +45,8 @@ class HonAppliance:
         self._additional_data: Dict[str, Any] = {}
         self._last_update: Optional[datetime] = None
         self._default_setting = HonParameter("", {}, "")
-        self._connection = (
-            not self._attributes.get("lastConnEvent", {}).get("category", "")
-            == "DISCONNECTED"
-        )
+        self._connection = False
+        self._push_revision = 0
         self._extra: Optional[ApplianceBase] = None
 
     async def create(self) -> Self:
@@ -110,6 +108,19 @@ class HonAppliance:
     @connection.setter
     def connection(self, connection: bool) -> None:
         self._connection = connection
+        self._attributes.setdefault("lastConnEvent", {})["category"] = (
+            "CONNECTED" if connection else "DISCONNECTED"
+        )
+
+    def refresh_derived_attributes(self) -> None:
+        """Recalculate state derived from parameters after either REST or MQTT."""
+        if self._extra:
+            self._attributes = self._extra.attributes(self._attributes)
+
+    def push_updated(self) -> None:
+        """Prevent an in-flight REST snapshot from replacing newer push data."""
+        self._push_revision += 1
+        self.refresh_derived_attributes()
 
     @property
     def appliance_model_id(self) -> str:
@@ -203,7 +214,10 @@ class HonAppliance:
         self.sync_params_to_command("settings")
 
     async def load_attributes(self) -> None:
+        revision = self._push_revision
         attributes = await self.api.load_attributes(self)
+        if revision != self._push_revision:
+            return
         for name, values in attributes.pop("shadow", {}).get("parameters", {}).items():
             if name in self._attributes.get("parameters", {}):
                 self._attributes["parameters"][name].update(values)
@@ -212,8 +226,10 @@ class HonAppliance:
                     values
                 )
         self._attributes |= attributes
-        if self._extra:
-            self._attributes = self._extra.attributes(self._attributes)
+        category = self._attributes.get("lastConnEvent", {}).get("category")
+        if category in ("CONNECTED", "DISCONNECTED"):
+            self.connection = category == "CONNECTED"
+        self.refresh_derived_attributes()
 
     async def load_statistics(self) -> None:
         self._statistics = await self.api.load_statistics(self)

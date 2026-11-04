@@ -122,7 +122,9 @@ class Hon:
         if not self._mqtt_client:
             self._mqtt_client = await MQTTClient(self, self._mobile_id).create()
 
-    def subscribe_updates(self, notify_function: Callable[[Any], None]) -> None:
+    def subscribe_updates(
+        self, notify_function: Optional[Callable[[Any], None]]
+    ) -> None:
         self._notify_function = notify_function
 
     def notify(self) -> None:
@@ -130,4 +132,11 @@ class Hon:
             self._notify_function(None)
 
     async def close(self) -> None:
-        await self.api.close()
+        self._notify_function = None
+        try:
+            if self._mqtt_client:
+                await self._mqtt_client.close()
+                self._mqtt_client = None
+        finally:
+            if self._api:
+                await self._api.close()

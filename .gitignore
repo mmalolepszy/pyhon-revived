@@ -4,5 +4,8 @@ __pycache__/
 dist/
 **/*.egg-info/
 test*
+!tests/
+!tests/test_*.py
+.pytest_cache/
 build/
 .vscode/

@@ -23,3 +23,18 @@ class ApplianceBase:
 
     def settings(self, settings: Dict[str, Any]) -> Dict[str, Any]:
         return settings
+
+    def laundry_attributes(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Use the current machine mode, not the last REST activity record."""
+        data = ApplianceBase.attributes(self, data)
+        mode = data.get("parameters", {}).get("machMode")
+        mode = getattr(mode, "value", mode)
+        try:
+            mode = int(mode)
+        except (TypeError, ValueError):
+            data["active"] = self.parent.connection and bool(data.get("activity"))
+            data["pause"] = False
+        else:
+            data["active"] = self.parent.connection and mode in (2, 3, 4, 5, 9)
+            data["pause"] = self.parent.connection and mode == 3
+        return data
