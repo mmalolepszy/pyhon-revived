@@ -36,7 +36,6 @@ class HonAuth:
         password: str,
         device: HonDevice,
     ) -> None:
-        self._session = session
         self._request = HonAuthConnectionHandler(session)
         self._email = email
         self._password = password
@@ -77,7 +76,9 @@ class HonAuth:
         output = "hOn Authentication Error\n"
         for i, (status, url) in enumerate(self._request.called_urls):
             output += f" {i + 1: 2d}     {status} - {url}\n"
-        output += f"ERROR - {response.status} - {redact_url(response.request_info.url)}\n"
+        output += (
+            f"ERROR - {response.status} - {redact_url(response.request_info.url)}\n"
+        )
         output += f"{15 * '='} Response {15 * '='}\n{await response.text()}\n{40 * '='}"
         _LOGGER.error(output)
         if fail:
@@ -160,6 +161,15 @@ class HonAuth:
         """
         if refresh_token:
             self._auth.refresh_token = refresh_token
+        if await self._refresh_cached_session():
+            return True
+        try:
+            await self.authenticate()
+        except exceptions.HonAuthenticationError:
+            return False
+        return True
+
+    async def _refresh_cached_session(self) -> bool:
         if self._session_id and self._code_verifier:
             try:
                 if await self._get_tokens(self._session_id, self._code_verifier):
@@ -167,14 +177,12 @@ class HonAuth:
                     return True
             except exceptions.HonAuthenticationError:
                 pass
-        try:
-            await self.authenticate()
-        except exceptions.HonAuthenticationError:
-            return False
-        return True
+        return False
 
     def clear(self) -> None:
-        self._session.cookie_jar.clear_domain(const.API_URL.split("/")[-1])
+        self._request.session.cookie_jar.clear_domain(
+            const.API_URL.rsplit("/", maxsplit=1)[-1]
+        )
         self._request.called_urls = []
         self._session_id = ""
         self._code_verifier = ""
