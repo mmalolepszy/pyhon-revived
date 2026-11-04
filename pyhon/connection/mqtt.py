@@ -2,13 +2,15 @@ import asyncio
 import json
 import logging
 import secrets
-from typing import TYPE_CHECKING
+from contextlib import suppress
+from typing import TYPE_CHECKING, Any
 
 from awscrt import mqtt5
 from awsiot import mqtt5_client_builder  # type: ignore[import-untyped]
 
 from pyhon import const
 from pyhon.appliance import HonAppliance
+from pyhon.attributes import HonAttribute
 
 if TYPE_CHECKING:
     from pyhon import Hon
@@ -27,6 +29,8 @@ class MQTTClient:
         self._subscribed = False
         self._needs_reauth = False
         self._watchdog_task: asyncio.Task[None] | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._closed = False
 
     @property
     def client(self) -> mqtt5.Client:
@@ -35,6 +39,7 @@ class MQTTClient:
         raise AttributeError("Client is not set")
 
     async def create(self) -> "MQTTClient":
+        self._loop = asyncio.get_running_loop()
         await self._start()
         await self.start_watchdog()
         return self
@@ -81,7 +86,9 @@ class MQTTClient:
             mqtt5.ConnectReasonCode.NOT_AUTHORIZED,
             mqtt5.ConnectReasonCode.BAD_USERNAME_OR_PASSWORD,
         ):
-            _LOGGER.info("MQTT connection rejected as unauthorized, will re-authenticate")
+            _LOGGER.info(
+                "MQTT connection rejected as unauthorized, will re-authenticate"
+            )
             self._needs_reauth = True
             if self._client is not None:
                 # Stop the client's own reconnect loop immediately, otherwise it
@@ -97,33 +104,79 @@ class MQTTClient:
         _LOGGER.info("Lifecycle Disconnection - %s", str(lifecycle_disconnect_data))
 
     def _on_publish_received(self, data: mqtt5.PublishReceivedData) -> None:
+        # AWS CRT invokes callbacks on a worker thread. Mutate appliance state
+        # and notify consumers on the owning asyncio loop, including HA.
+        if not self._closed and self._loop and not self._loop.is_closed():
+            self._loop.call_soon_threadsafe(self._process_publish, data)
+
+    def _process_publish(self, data: mqtt5.PublishReceivedData) -> None:
+        if self._closed:
+            return
         if not (data and data.publish_packet and data.publish_packet.payload):
             return
-        payload = json.loads(data.publish_packet.payload.decode())
+        try:
+            payload = json.loads(data.publish_packet.payload.decode())
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            _LOGGER.warning("Ignoring malformed MQTT payload")
+            return
+        if not isinstance(payload, dict):
+            return
         topic = data.publish_packet.topic
         appliance = next(
-            a for a in self._appliances if topic in a.info["topics"]["subscribe"]
+            (
+                a
+                for a in self._appliances
+                if topic in a.info.get("topics", {}).get("subscribe", [])
+            ),
+            None,
         )
+        if appliance is None:
+            return
+        self._apply_publish(appliance, topic, payload)
+        appliance.push_updated()
+        self._hon.notify()
+        _LOGGER.debug("%s - %s", topic, payload)
+
+    def _apply_publish(
+        self, appliance: HonAppliance, topic: str | None, payload: dict[str, Any]
+    ) -> None:
         if topic and "appliancestatus" in topic:
-            for parameter in payload["parameters"]:
-                appliance.attributes["parameters"][parameter["parName"]].update(
-                    parameter
-                )
-            appliance.sync_params_to_command("settings")
+            self._update_parameters(appliance, payload.get("parameters", []))
         elif topic and "disconnected" in topic:
-            _LOGGER.info(
-                "Disconnected %s: %s",
-                appliance.nick_name,
-                payload.get("disconnectReason"),
-            )
             appliance.connection = False
         elif topic and "connected" in topic:
             appliance.connection = True
-            _LOGGER.info("Connected %s", appliance.nick_name)
-        elif topic and "discovery" in topic:
-            _LOGGER.info("Discovered %s", appliance.nick_name)
-        self._hon.notify()
-        _LOGGER.info("%s - %s", topic, payload)
+
+    @staticmethod
+    def _update_parameters(appliance: HonAppliance, parameters: Any) -> None:
+        if not isinstance(parameters, list):
+            return
+        current = appliance.attributes.setdefault("parameters", {})
+        for parameter in parameters:
+            if not isinstance(parameter, dict) or not isinstance(
+                parameter.get("parName"), str
+            ):
+                continue
+            name = parameter["parName"]
+            if name in current:
+                current[name].update(parameter)
+            else:
+                current[name] = HonAttribute(parameter)
+        appliance.sync_params_to_command("settings")
+
+    async def close(self) -> None:
+        """Stop reconnects and ignore queued callbacks after unload."""
+        self._closed = True
+        if self._watchdog_task:
+            self._watchdog_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._watchdog_task
+            self._watchdog_task = None
+        if self._client:
+            self._client.stop()
+            self._client = None
+        self._connection = False
+        self._subscribed = False
 
     async def _start(self) -> None:
         if self._client is not None:
@@ -151,7 +204,7 @@ class MQTTClient:
             on_lifecycle_connection_failure=self._on_lifecycle_connection_failure,
             on_lifecycle_disconnection=self._on_lifecycle_disconnection,
             on_publish_received=self._on_publish_received,
-            enable_metrics_collection=False
+            enable_metrics_collection=False,
         )
 
     def _subscribe_appliances(self) -> None:
@@ -161,7 +214,6 @@ class MQTTClient:
             self._subscribed = True
         except Exception as e:
             _LOGGER.error("Error subscribing to appliances: %s - %s", repr(e), str(e))
-
 
     def _subscribe(self, appliance: HonAppliance) -> None:
         for topic in appliance.info.get("topics", {}).get("subscribe", []):
@@ -175,7 +227,7 @@ class MQTTClient:
             self._watchdog_task = asyncio.create_task(self._watchdog())
 
     async def _watchdog(self) -> None:
-        while True:
+        while not self._closed:
             await asyncio.sleep(5)
             try:
                 if not self._connection:
@@ -193,6 +245,4 @@ class MQTTClient:
                 # fetch, client build) used to escape and kill this task
                 # silently; the connection was then never restarted and all
                 # updates stopped until a manual reload. Log and keep going.
-                _LOGGER.warning(
-                    "MQTT watchdog iteration failed, retrying: %r", error
-                )
+                _LOGGER.warning("MQTT watchdog iteration failed, retrying: %r", error)
