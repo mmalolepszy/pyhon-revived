@@ -1,4 +1,5 @@
 import logging
+from copy import copy
 from typing import Optional, Dict, Any, List, TYPE_CHECKING, Union
 
 from pyhon import exceptions
@@ -38,6 +39,15 @@ class HonCommand:
         attributes.pop("description", "")
         attributes.pop("protocolType", "")
         self._load_parameters(attributes)
+
+    def copy_with_parameters(self) -> "HonCommand":
+        """Copy a command with independent parameter objects for a favourite."""
+        command = copy(self)
+        # This is a same-class copy; keep parameter replacement inside HonCommand.
+        command._parameters = {  # pylint: disable=protected-access
+            key: copy(value) for key, value in self._parameters.items()
+        }
+        return command
 
     def __repr__(self) -> str:
         return f"{self._name} command"

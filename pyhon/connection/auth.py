@@ -36,7 +36,6 @@ class HonAuth:
         password: str,
         device: HonDevice,
     ) -> None:
-        self._session = session
         self._request = HonAuthConnectionHandler(session)
         self._email = email
         self._password = password
@@ -181,7 +180,9 @@ class HonAuth:
         return False
 
     def clear(self) -> None:
-        self._session.cookie_jar.clear_domain(const.API_URL.split("/")[-1])
+        self._request.session.cookie_jar.clear_domain(
+            const.API_URL.rsplit("/", maxsplit=1)[-1]
+        )
         self._request.called_urls = []
         self._session_id = ""
         self._code_verifier = ""

@@ -14,16 +14,17 @@ def clean_value(value: str | float) -> str:
 class HonParameterEnum(HonParameter):
     def __init__(self, key: str, attributes: Dict[str, Any], group: str) -> None:
         super().__init__(key, attributes, group)
-        self._default: str | float = ""
+        self._default: str = ""
         self._value: str | float = ""
         self._values: List[str] = []
         self._set_attributes()
-        if self._default and clean_value(self._default.strip("[]")) not in self.values:
+        if self._default and clean_value(self._default) not in self.values:
             self._values.append(self._default)
 
     def _set_attributes(self) -> None:
         super()._set_attributes()
-        self._default = self._attributes.get("defaultValue", "")
+        default = self._attributes.get("defaultValue", "")
+        self._default = str(default) if default is not None else ""
         self._value = self._default or "0"
         self._values = self._attributes.get("enumValues", [])
 
@@ -37,7 +38,7 @@ class HonParameterEnum(HonParameter):
     @values.setter
     def values(self, values: List[str]) -> None:
         self._values = values
-        if self._default and clean_value(self._default.strip("[]")) not in self.values:
+        if self._default and clean_value(self._default) not in self.values:
             self._values.append(self._default)
         _LOGGER.info("Set values of %s to %s", str(self._key), str(self._values))
 
@@ -50,7 +51,8 @@ class HonParameterEnum(HonParameter):
         return clean_value(self._value) if self._value is not None else self.values[0]
 
     @value.setter
-    def value(self, value: str) -> None:
+    def value(self, value: str | float) -> None:
+        value = str(value)
         if value in self.values:
             self._value = value
             self.check_trigger(value)

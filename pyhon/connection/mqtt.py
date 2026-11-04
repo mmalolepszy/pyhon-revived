@@ -22,7 +22,6 @@ class MQTTClient:
         self._hon = hon
         self._mobile_id = mobile_id or const.MOBILE_ID
         self._api = hon.api
-        self._appliances = hon.appliances
         self._connection = False
         self._subscribed = False
         self._needs_reauth = False
@@ -52,9 +51,10 @@ class MQTTClient:
         _LOGGER.info(
             "Lifecycle Connection Success: %s", str(lifecycle_connect_success_data)
         )
-        if not lifecycle_connect_success_data.negotiated_settings.rejoined_session:
+        settings = lifecycle_connect_success_data.negotiated_settings
+        if settings is None or not settings.rejoined_session:
             # Resubscribe to all topics after reconnection
-            # This is needed because we use a new client_id each time (no session persistence)
+            # Each new client ID needs fresh subscriptions (no session persistence).
             _LOGGER.info("MQTT connection established, marking as not subscribed")
             self._subscribed = False
         else:
@@ -104,7 +104,7 @@ class MQTTClient:
         payload = json.loads(data.publish_packet.payload.decode())
         topic = data.publish_packet.topic
         appliance = next(
-            a for a in self._appliances if topic in a.info["topics"]["subscribe"]
+            a for a in self._hon.appliances if topic in a.info["topics"]["subscribe"]
         )
         if topic and "appliancestatus" in topic:
             for parameter in payload["parameters"]:
@@ -139,7 +139,7 @@ class MQTTClient:
         await loop.run_in_executor(None, MQTTClient._build_mqtt_client, self, aws_token)
         self.client.start()
 
-    def _build_mqtt_client(self, aws_token) -> None:
+    def _build_mqtt_client(self, aws_token: str) -> None:
         self._client = mqtt5_client_builder.websockets_with_custom_authorizer(
             endpoint=const.AWS_ENDPOINT,
             auth_authorizer_name=const.AWS_AUTHORIZER,
@@ -157,12 +157,11 @@ class MQTTClient:
         )
 
     def _subscribe_appliances(self) -> None:
-        try:
-            for appliance in self._appliances:
-                self._subscribe(appliance)
-            self._subscribed = True
-        except Exception as e:
-            _LOGGER.error("Error subscribing to appliances: %s - %s", repr(e), str(e))
+        # The watchdog owns retry/error handling. Mark success only after every
+        # subscription completes so a partial failure is retried on its next tick.
+        for appliance in self._hon.appliances:
+            self._subscribe(appliance)
+        self._subscribed = True
 
     def _subscribe(self, appliance: HonAppliance) -> None:
         for topic in appliance.info.get("topics", {}).get("subscribe", []):

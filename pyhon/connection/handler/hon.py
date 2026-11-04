@@ -69,49 +69,35 @@ class HonConnectionHandler(ConnectionHandler):
     async def _intercept(
         self, method: Callback, url: str | URL, *args: Any, **kwargs: Any
     ) -> AsyncIterator[aiohttp.ClientResponse]:
-        loop: int = kwargs.pop("loop", 0)
-        kwargs["headers"] = await self._check_headers(kwargs.get("headers", {}))
-        async with method(url, *args, **kwargs) as response:
-            needs_retry = response.status in (401, 403) or (
-                (self.auth.token_expires_soon and loop == 0)
-                or (self.auth.token_is_expired and loop == 1)
-            )
-            if needs_retry and loop == 0:
-                _LOGGER.info("Try refreshing token...")
-                await self.auth.refresh(self._refresh_token)
-                async with self._intercept(
-                    method, url, *args, loop=loop + 1, **kwargs
-                ) as result:
-                    yield result
-            elif needs_retry and loop == 1:
-                _LOGGER.info(
-                    "%s - Error %s - %s",
-                    response.request_info.url,
-                    response.status,
-                    await response.text(),
-                )
-                await self.create()
-                async with self._intercept(
-                    method, url, *args, loop=loop + 1, **kwargs
-                ) as result:
-                    yield result
-            elif needs_retry:
-                _LOGGER.error(
-                    "%s - Error %s - %s",
-                    response.request_info.url,
-                    response.status,
-                    await response.text(),
-                )
-                raise HonAuthenticationError("Login failure")
-            else:
-                try:
-                    await response.json()
+        start: int = kwargs.pop("loop", 0)
+        for attempt in range(start, 3):
+            kwargs["headers"] = await self._check_headers(kwargs.get("headers", {}))
+            async with method(url, *args, **kwargs) as response:
+                if not self._needs_retry(response, attempt):
+                    try:
+                        await response.json()
+                    except json.JSONDecodeError as exc:
+                        _LOGGER.warning("Invalid JSON response from hOn API")
+                        raise HonAuthenticationError("Decode Error") from exc
                     yield response
-                except json.JSONDecodeError as exc:
-                    _LOGGER.warning(
-                        "%s - JsonDecodeError %s - %s",
-                        response.request_info.url,
-                        response.status,
-                        await response.text(),
-                    )
-                    raise HonAuthenticationError("Decode Error") from exc
+                    return
+                _LOGGER.info(
+                    "hOn request requires authentication retry: %s", response.status
+                )
+            # Release the failed response before refreshing or opening another.
+            await self._retry_authentication(attempt)
+        raise HonAuthenticationError("Login failure")
+
+    def _needs_retry(self, response: aiohttp.ClientResponse, attempt: int) -> bool:
+        return response.status in (401, 403) or (
+            (self.auth.token_expires_soon and attempt == 0)
+            or (self.auth.token_is_expired and attempt == 1)
+        )
+
+    async def _retry_authentication(self, attempt: int) -> None:
+        if attempt == 0:
+            await self.auth.refresh(self._refresh_token)
+        elif attempt == 1:
+            await self.create()
+        else:
+            raise HonAuthenticationError("Login failure")
