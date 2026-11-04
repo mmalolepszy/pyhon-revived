@@ -227,20 +227,27 @@ class HonCommandLoader:
             # generic default temp/dirtyLevel/etc. instead of its own saved
             # values - selecting different favourites appeared to have no
             # effect on these settings at all.
-            for key, value in data.get("parameters", {}).items():
-                if not (parameter := base_command.parameters.get(key)):
-                    continue
-                with suppress(ValueError):
-                    parameter.value = value
+            self._update_parameter_values(base_command, data.get("parameters", {}))
             # Keep the previous (shallow) behaviour too, in case a caller
             # ever passes an already-flattened dict.
-            for key, value in data.items():
-                if isinstance(value, dict):
-                    continue
-                if not (parameter := base_command.parameters.get(key)):
-                    continue
-                with suppress(ValueError):
-                    parameter.value = value
+            self._update_parameter_values(
+                base_command,
+                {
+                    key: value
+                    for key, value in data.items()
+                    if not isinstance(value, dict)
+                },
+            )
+
+    @staticmethod
+    def _update_parameter_values(
+        base_command: HonCommand, values: Dict[str, Any]
+    ) -> None:
+        for key, value in values.items():
+            if not (parameter := base_command.parameters.get(key)):
+                continue
+            with suppress(ValueError):
+                parameter.value = value
 
     def _update_base_command_with_favourite(self, base_command: HonCommand) -> None:
         extra_param = HonParameterFixed("favourite", {"fixedValue": "1"}, "custom")

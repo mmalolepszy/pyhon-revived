@@ -42,10 +42,19 @@ class HonRuleSet:
         trigger_data: Dict[str, Any],
         extra: Optional[Dict[str, str]] = None,
     ) -> None:
-        trigger_key = trigger_key.replace("@", "")
-        trigger_key = self._command.appliance.options.get(trigger_key, trigger_key)
         if not isinstance(trigger_data, dict):
             return
+        self._parse_condition_values(param_key, trigger_key, trigger_data, extra)
+
+    def _parse_condition_values(
+        self,
+        param_key: str,
+        trigger_key: str,
+        trigger_data: Dict[str, Any],
+        extra: Optional[Dict[str, str]] = None,
+    ) -> None:
+        trigger_key = trigger_key.replace("@", "")
+        trigger_key = self._command.appliance.options.get(trigger_key, trigger_key)
         for multi_trigger_value, param_data in trigger_data.items():
             for trigger_value in multi_trigger_value.split("|"):
                 if isinstance(param_data, dict) and "typology" in param_data:
