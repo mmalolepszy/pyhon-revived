@@ -16,6 +16,15 @@ def anonymize_data(data: str) -> str:
     default_mac = "xx-xx-xx-xx-xx-xx"
     data = re.sub("[0-9A-Fa-f]{2}(-[0-9A-Fa-f]{2}){5}", default_mac, data)
     data = re.sub("[\\d-]{10}T[\\d:]{8}(.\\d+)?Z", default_date, data)
+    data = re.sub(
+        "\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}", "1970-01-01 00:00:00", data
+    )
+    # hOn (Salesforce) account ids, wherever they appear
+    data = re.sub(
+        '"001[A-Za-z0-9]{12}([A-Za-z0-9]{3})?"',
+        lambda m: re.sub("[A-Za-z0-9]", "x", m.group(0)),
+        data,
+    )
     for sensible in [
         "serialNumber",
         "code",
@@ -25,6 +34,9 @@ def anonymize_data(data: str) -> str:
         "SK",
         "lat",
         "lng",
+        "principalUserId",
+        "secondaryUserId",
+        "sfPersonAccountId",
     ]:
         for match in re.findall(f'"{sensible}.*?":\\s"?(.+?)"?,?\\n', data):
             replace = re.sub("[a-z]", "x", match)
