@@ -3,7 +3,7 @@ import json
 import re
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING, Any, List, Tuple
 
 from pyhon import printer
 
@@ -69,11 +69,23 @@ async def appliance_data(
         "command_history",
         "statistics",
         "maintenance",
-        "appliance_data",
     ]
     path /= f"{appliance.appliance_type}_{appliance.model_id}".lower()
     path.mkdir(parents=True, exist_ok=True)
-    api_data = await asyncio.gather(*[load_data(appliance, name) for name in requests])
+    api_data: List[Tuple[str, Any]] = list(
+        await asyncio.gather(*[load_data(appliance, name) for name in requests])
+    )
+    # appliance_data.json is the appliance record from the appliance list (what
+    # TestAPI.load_appliances reads back). The appliance-model endpoint used
+    # before gives an empty result in current exports.
+    # HonAppliance turns "attributes" into a dict; store the list form it expects.
+    info = dict(appliance.info)
+    if isinstance(info.get("attributes"), dict):
+        info["attributes"] = [
+            {"parName": name, "parValue": value}
+            for name, value in info["attributes"].items()
+        ]
+    api_data.append(("appliance_data", info))
     return [write_to_json(data, topic, path, anonymous) for topic, data in api_data]
 
 
