@@ -39,11 +39,30 @@ def anonymize_data(data: str) -> str:
         "sfPersonAccountId",
     ]:
         for match in re.findall(f'"{sensible}.*?":\\s"?(.+?)"?,?\\n', data):
-            replace = re.sub("[a-z]", "x", match)
-            replace = re.sub("[A-Z]", "X", replace)
-            replace = re.sub("\\d", "1", replace)
-            data = data.replace(match, replace)
+            data = data.replace(match, _mask_value(match))
     return data
+
+
+def _mask_value(value: str) -> str:
+    """Mask letters and digits of a JSON-encoded string value.
+
+    Escape sequences are kept valid: a \\uXXXX escape (a non-ASCII character)
+    is masked as one "x", other escapes (\\n, \\", \\\\ ...) are left as they are.
+    """
+
+    def mask(match: "re.Match[str]") -> str:
+        text = match.group(0)
+        if text.startswith("\\u"):
+            return "x"
+        if text.startswith("\\"):
+            return text
+        if text.islower():
+            return "x"
+        if text.isupper():
+            return "X"
+        return "1"
+
+    return re.sub(r"\\u[0-9A-Fa-f]{4}|\\.|[a-z]|[A-Z]|\d", mask, value)
 
 
 async def load_data(appliance: "HonAppliance", topic: str) -> Tuple[str, str]:
