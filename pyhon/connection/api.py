@@ -38,6 +38,7 @@ class HonAPI:
         self._hon_handler: Optional[HonConnectionHandler] = None
         self._hon_anonymous_handler: Optional[HonAnonymousConnectionHandler] = None
         self._session: Optional[ClientSession] = session
+        self._troubleshooting: Dict[str, List[Dict[str, Any]]] = {}
 
     async def __aenter__(self) -> Self:
         return await self.create()
@@ -198,6 +199,30 @@ class HonAPI:
             maintenance: Dict[str, Any] = (await response.json()).get("payload", {})
         return maintenance
 
+    async def load_troubleshooting(
+        self, appliance_type: str, brand: str = ""
+    ) -> List[Dict[str, Any]]:
+        """Error code definitions the hOn app uses for its troubleshooting pages.
+
+        Each entry maps an ``errorCode`` (hex value with one bit set, or a plain
+        code on Candy platforms) to a translation key ``title`` and ``steps``.
+        The endpoint needs ``applianceType``; ``brand`` adds the brand specific
+        entries. The result is cached per appliance type and brand.
+        """
+        cache_key = f"{appliance_type}#{brand}".lower()
+        if cache_key in self._troubleshooting:
+            return self._troubleshooting[cache_key]
+        params: Dict[str, str] = {"applianceType": appliance_type}
+        if brand:
+            params["brand"] = brand.lower()
+        url: str = f"{const.API_URL}/config/v1/troubleshooting/list"
+        async with self._hon.get(url, params=params) as response:
+            result: Dict[str, Any] = await response.json()
+        payload = result.get("payload", []) if isinstance(result, dict) else []
+        entries: List[Dict[str, Any]] = payload if isinstance(payload, list) else []
+        self._troubleshooting[cache_key] = entries
+        return entries
+
     async def load_aws_token(self) -> str:
         url: str = f"{const.API_URL}/auth/v1/introspection"
         async with self._hon.get(url) as response:
@@ -336,6 +361,11 @@ class TestAPI(HonAPI):
 
     async def load_maintenance(self, appliance: HonAppliance) -> Dict[str, Any]:
         return self._load_json(appliance, "maintenance")
+
+    async def load_troubleshooting(
+        self, appliance_type: str, brand: str = ""
+    ) -> List[Dict[str, Any]]:
+        return []
 
     async def send_command(
         self,

@@ -84,6 +84,21 @@ async with Hon(USER, PASSWORD) as hon:
             setting.value = setting.min + setting.step
 ```
 
+## Error codes
+The cloud reports appliance errors in the attribute `errors` as a hex bit field
+(`8000000000000` = bit 51, `00` = no error). The hOn app resolves it through the
+troubleshooting list (`GET /config/v1/troubleshooting/list`), which pyhon loads once
+per appliance type and brand. `appliance.errors` returns the decoded entries, each
+with the display code, the raw bit and the translation keys of title and steps:
+```python
+for error in appliance.errors:
+    print(error.code, error.title_key, error.steps)
+# E4 TROUBLESHOOTING:HAIER:WM.959.E4:TITLE ['TROUBLESHOOTING:HAIER:WM.959.E4:STEP_01:DESCRIPTION', ...]
+```
+`appliance.error_codes` gives just the codes (`["E4"]`). Several set bits are reported
+as several errors; bits without a cloud entry fall back to `bit<n>`. Titles and steps
+can be translated with `pyhon.troubleshooting.translate(await hon.api.translation_keys("de"), key)`.
+
 ## Translation
 To get the translation of some keys like programs, you can use the translation command to see all of hOn's available translations
 ```commandline
