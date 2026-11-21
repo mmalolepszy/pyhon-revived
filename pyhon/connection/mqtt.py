@@ -117,8 +117,11 @@ class MQTTClient:
                 payload.get("disconnectReason"),
             )
             appliance.connection = False
+            # keep the REST-loaded record in step, it feeds the connectivity sensors
+            appliance.attributes.setdefault("lastConnEvent", {})["category"] = "DISCONNECTED"
         elif topic and "connected" in topic:
             appliance.connection = True
+            appliance.attributes.setdefault("lastConnEvent", {})["category"] = "CONNECTED"
             _LOGGER.info("Connected %s", appliance.nick_name)
         elif topic and "discovery" in topic:
             _LOGGER.info("Discovered %s", appliance.nick_name)

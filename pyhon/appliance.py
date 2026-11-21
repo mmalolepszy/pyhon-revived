@@ -212,6 +212,10 @@ class HonAppliance:
                     values
                 )
         self._attributes |= attributes
+        if category := attributes.get("lastConnEvent", {}).get("category"):
+            # The REST record is the truth at (re)load time; __init__ ran before
+            # any attributes existed and therefore always started with True.
+            self._connection = category != "DISCONNECTED"
         if self._extra:
             self._attributes = self._extra.attributes(self._attributes)
 
