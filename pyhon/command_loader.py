@@ -217,7 +217,7 @@ class HonCommandLoader:
         self, base_command: HonCommand, command: Dict[str, Any]
     ) -> None:
         for data in command.values():
-            if isinstance(data, str):
+            if not isinstance(data, dict):
                 continue
             # Haier nests the actual per-favourite override values (e.g.
             # dirtyLevel, temp, spinSpeed) one level deeper, inside
@@ -228,14 +228,16 @@ class HonCommandLoader:
             # values - selecting different favourites appeared to have no
             # effect on these settings at all.
             for key, value in data.get("parameters", {}).items():
-                if not (parameter := base_command.parameters.get(key)):
+                # A favourite can store null for a parameter (seen on a Candy
+                # washer, hon-revived#98); keep the base program's value.
+                if value is None or not (parameter := base_command.parameters.get(key)):
                     continue
                 with suppress(ValueError):
                     parameter.value = value
             # Keep the previous (shallow) behaviour too, in case a caller
             # ever passes an already-flattened dict.
             for key, value in data.items():
-                if isinstance(value, dict):
+                if value is None or isinstance(value, dict):
                     continue
                 if not (parameter := base_command.parameters.get(key)):
                     continue
