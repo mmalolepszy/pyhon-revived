@@ -319,8 +319,9 @@ class TestAPI(HonAPI):
     ) -> List[Dict[str, Any]]:
         return self._load_json(appliance, "command_history")
 
+    @no_type_check
     async def load_favourites(self, appliance: HonAppliance) -> List[Dict[str, Any]]:
-        return []
+        return self._load_json(appliance, "favourites") or []
 
     async def load_last_activity(self, appliance: HonAppliance) -> Dict[str, Any]:
         return {}

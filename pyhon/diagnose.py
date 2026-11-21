@@ -79,6 +79,40 @@ def write_to_json(data: str, topic: str, path: Path, anonymous: bool = False) ->
     return file
 
 
+def _prepare_favourites(favourites: Any, anonymous: bool) -> Any:
+    """Shrink the favourites for export and, if anonymous, hide their names.
+
+    command.parametersUIScreen (the hOn app's screen description of every
+    parameter) is dropped: pyhon does not read it and it is ~90% of the size.
+
+    The name is free text typed in the hOn app. Masking it letter by letter
+    could give two favourites the same name, and pyhon uses the name as the
+    program key, so each distinct name gets its own numbered replacement.
+    """
+    if not isinstance(favourites, list):
+        return favourites
+    names: dict[str, str] = {}
+    result = []
+    for favourite in favourites:
+        if not isinstance(favourite, dict):
+            result.append(favourite)
+            continue
+        favourite = json.loads(json.dumps(favourite))
+        command = favourite.get("command")
+        if not isinstance(command, dict):
+            command = {}
+        command.pop("parametersUIScreen", None)
+        name = favourite.get("favouriteName")
+        if anonymous and isinstance(name, str):
+            new_name = names.setdefault(name, f"favourite_{len(names) + 1}")
+            favourite["favouriteName"] = new_name
+            attributes = command.get("attributes")
+            if isinstance(attributes, dict) and attributes.get("prStr") == name:
+                attributes["prStr"] = new_name
+        result.append(favourite)
+    return result
+
+
 async def appliance_data(
     appliance: "HonAppliance", path: Path, anonymous: bool = False
 ) -> List[Path]:
@@ -88,12 +122,17 @@ async def appliance_data(
         "command_history",
         "statistics",
         "maintenance",
+        "favourites",
     ]
     path /= f"{appliance.appliance_type}_{appliance.model_id}".lower()
     path.mkdir(parents=True, exist_ok=True)
     api_data: List[Tuple[str, Any]] = list(
         await asyncio.gather(*[load_data(appliance, name) for name in requests])
     )
+    api_data = [
+        (topic, _prepare_favourites(data, anonymous) if topic == "favourites" else data)
+        for topic, data in api_data
+    ]
     # appliance_data.json is the appliance record from the appliance list (what
     # TestAPI.load_appliances reads back). The appliance-model endpoint used
     # before gives an empty result in current exports.
