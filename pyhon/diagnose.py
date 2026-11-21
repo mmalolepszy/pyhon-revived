@@ -90,7 +90,6 @@ async def appliance_data(
         "maintenance",
     ]
     path /= f"{appliance.appliance_type}_{appliance.model_id}".lower()
-    path.mkdir(parents=True, exist_ok=True)
     api_data: List[Tuple[str, Any]] = list(
         await asyncio.gather(*[load_data(appliance, name) for name in requests])
     )
@@ -105,7 +104,26 @@ async def appliance_data(
             for name, value in info["attributes"].items()
         ]
     api_data.append(("appliance_data", info))
+    # File I/O happens in the default executor: inside Home Assistant this coroutine
+    # runs on the event loop, which must not block ("Detected blocking call to open").
+    return await asyncio.get_running_loop().run_in_executor(
+        None, _write_files, api_data, path, anonymous
+    )
+
+
+def _write_files(
+    api_data: List[Tuple[str, Any]], path: Path, anonymous: bool
+) -> List[Path]:
+    """Create the directory and write one JSON file per topic (blocking)."""
+    path.mkdir(parents=True, exist_ok=True)
     return [write_to_json(data, topic, path, anonymous) for topic, data in api_data]
+
+
+def _zip_directory(archive: Path) -> str:
+    """Zip the directory, remove it and return the archive file name (blocking)."""
+    shutil.make_archive(str(archive), "zip", archive)
+    shutil.rmtree(archive)
+    return f"{archive.stem}.zip"
 
 
 async def zip_archive(
@@ -113,9 +131,9 @@ async def zip_archive(
 ) -> str:
     data = await appliance_data(appliance, path, anonymous)
     archive = data[0].parent
-    shutil.make_archive(str(archive), "zip", archive)
-    shutil.rmtree(archive)
-    return f"{archive.stem}.zip"
+    return await asyncio.get_running_loop().run_in_executor(
+        None, _zip_directory, archive
+    )
 
 
 def yaml_export(appliance: "HonAppliance", anonymous: bool = False) -> str:
