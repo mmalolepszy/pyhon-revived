@@ -10,7 +10,7 @@ class Appliance(ApplianceBase):
         if not self.parent.connection:
             data["parameters"]["machMode"].value = "0"
         data["active"] = bool(data.get("activity"))
-        data["pause"] = data["parameters"]["machMode"] == "3"
+        data["pause"] = data["parameters"]["machMode"].value == 3
         return data
 
     def settings(self, settings: Dict[str, Any]) -> Dict[str, Any]:
