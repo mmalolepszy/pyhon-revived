@@ -109,6 +109,10 @@ class MQTTClient:
                 appliance.attributes["parameters"][parameter["parName"]].update(
                     parameter
                 )
+            # A status update comes from the appliance, so it is online, even if the
+            # presence "connected" message was missed. Without this, an appliance
+            # that was offline when HA started keeps machMode forced to 0.
+            appliance.connection = True
             appliance.refresh_derived_attributes()
             appliance.sync_params_to_command("settings")
         elif topic and "disconnected" in topic:
