@@ -113,6 +113,7 @@ class MQTTClient:
             # presence "connected" message was missed. Without this, an appliance
             # that was offline when HA started keeps machMode forced to 0.
             appliance.connection = True
+            appliance.attributes.setdefault("lastConnEvent", {})["category"] = "CONNECTED"
             appliance.refresh_derived_attributes()
             appliance.sync_params_to_command("settings")
         elif topic and "disconnected" in topic:
@@ -122,8 +123,12 @@ class MQTTClient:
                 payload.get("disconnectReason"),
             )
             appliance.connection = False
+            # The connectivity sensors read lastConnEvent, which REST only loads at
+            # startup. Keep it in step with the presence messages.
+            appliance.attributes.setdefault("lastConnEvent", {})["category"] = "DISCONNECTED"
         elif topic and "connected" in topic:
             appliance.connection = True
+            appliance.attributes.setdefault("lastConnEvent", {})["category"] = "CONNECTED"
             _LOGGER.info("Connected %s", appliance.nick_name)
         elif topic and "discovery" in topic:
             _LOGGER.info("Discovered %s", appliance.nick_name)
