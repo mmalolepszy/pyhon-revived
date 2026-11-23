@@ -1,5 +1,5 @@
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Dict, Any
 
@@ -19,7 +19,7 @@ class HonAnonymousConnectionHandler(ConnectionHandler):
     @asynccontextmanager
     async def _intercept(
         self, method: Callback, url: str | URL, *args: Any, **kwargs: Dict[str, Any]
-    ) -> AsyncIterator[aiohttp.ClientResponse]:
+    ) -> AsyncGenerator[aiohttp.ClientResponse]:
         kwargs["headers"] = kwargs.pop("headers", {}) | self._HEADERS
         async with method(url, *args, **kwargs) as response:
             if response.status == 403:

@@ -1,9 +1,11 @@
 [MESSAGES CONTROL]
 
-disable=missing-docstring
+disable=missing-docstring,
+        line-too-long
 
 [FORMAT]
 
 max-args=7
-max-attributes=8
+max-attributes=9
+max-positional-arguments=6
 max-line-length=88

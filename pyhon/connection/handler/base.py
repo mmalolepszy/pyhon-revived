@@ -1,5 +1,5 @@
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from types import TracebackType
 from typing import Optional, Dict, Type, Any
@@ -49,14 +49,14 @@ class ConnectionHandler:
     @asynccontextmanager
     async def _intercept(
         self, method: Callback, url: str | URL, *args: Any, **kwargs: Dict[str, Any]
-    ) -> AsyncIterator[aiohttp.ClientResponse]:
+    ) -> AsyncGenerator[aiohttp.ClientResponse]:
         async with method(url, *args, **kwargs) as response:
             yield response
 
     @asynccontextmanager
     async def get(
         self, *args: Any, **kwargs: Any
-    ) -> AsyncIterator[aiohttp.ClientResponse]:
+    ) -> AsyncGenerator[aiohttp.ClientResponse]:
         if self._session is None:
             raise exceptions.NoSessionException()
         response: aiohttp.ClientResponse
@@ -67,7 +67,7 @@ class ConnectionHandler:
     @asynccontextmanager
     async def post(
         self, *args: Any, **kwargs: Any
-    ) -> AsyncIterator[aiohttp.ClientResponse]:
+    ) -> AsyncGenerator[aiohttp.ClientResponse]:
         if self._session is None:
             raise exceptions.NoSessionException()
         response: aiohttp.ClientResponse

@@ -178,7 +178,9 @@ class MQTTClient:
             for appliance in self._appliances:
                 self._subscribe(appliance)
             self._subscribed = True
-        except Exception as e:
+        # Any failure (no client yet, timeout, awscrt error) only leaves _subscribed
+        # False; the watchdog retries, so log it instead of crashing the caller.
+        except Exception as e:  # pylint: disable=broad-exception-caught
             _LOGGER.error("Error subscribing to appliances: %s - %s", repr(e), str(e))
 
     def _subscribe(self, appliance: HonAppliance) -> None:

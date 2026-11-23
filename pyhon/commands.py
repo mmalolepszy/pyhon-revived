@@ -1,4 +1,5 @@
 import logging
+from copy import copy
 from typing import Optional, Dict, Any, List, TYPE_CHECKING, Union
 
 from pyhon import exceptions
@@ -41,6 +42,14 @@ class HonCommand:
 
     def __repr__(self) -> str:
         return f"{self._name} command"
+
+    def __copy__(self) -> "HonCommand":
+        """Shallow copy with its own parameter objects, so changes to the copy
+        (e.g. a favourite derived from a base program) don't leak back."""
+        result = self.__class__.__new__(self.__class__)
+        result.__dict__.update(self.__dict__)
+        result._parameters = {key: copy(p) for key, p in self._parameters.items()}
+        return result
 
     @property
     def name(self) -> str:

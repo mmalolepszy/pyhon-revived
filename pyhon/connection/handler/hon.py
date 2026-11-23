@@ -1,6 +1,6 @@
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Optional, Dict, Any
 
@@ -68,50 +68,44 @@ class HonConnectionHandler(ConnectionHandler):
     @asynccontextmanager
     async def _intercept(
         self, method: Callback, url: str | URL, *args: Any, **kwargs: Any
-    ) -> AsyncIterator[aiohttp.ClientResponse]:
-        loop: int = kwargs.pop("loop", 0)
-        kwargs["headers"] = await self._check_headers(kwargs.get("headers", {}))
-        async with method(url, *args, **kwargs) as response:
-            needs_retry = response.status in (401, 403) or (
-                (self.auth.token_expires_soon and loop == 0)
-                or (self.auth.token_is_expired and loop == 1)
-            )
-            if needs_retry and loop == 0:
-                _LOGGER.info("Try refreshing token...")
-                await self.auth.refresh(self._refresh_token)
-                async with self._intercept(
-                    method, url, *args, loop=loop + 1, **kwargs
-                ) as result:
-                    yield result
-            elif needs_retry and loop == 1:
-                _LOGGER.info(
-                    "%s - Error %s - %s",
-                    response.request_info.url,
-                    response.status,
-                    await response.text(),
+    ) -> AsyncGenerator[aiohttp.ClientResponse]:
+        for attempt in range(3):
+            kwargs["headers"] = await self._check_headers(kwargs.get("headers", {}))
+            async with method(url, *args, **kwargs) as response:
+                needs_retry = response.status in (401, 403) or (
+                    (self.auth.token_expires_soon and attempt == 0)
+                    or (self.auth.token_is_expired and attempt == 1)
                 )
-                await self.create()
-                async with self._intercept(
-                    method, url, *args, loop=loop + 1, **kwargs
-                ) as result:
-                    yield result
-            elif needs_retry:
-                _LOGGER.error(
-                    "%s - Error %s - %s",
-                    response.request_info.url,
-                    response.status,
-                    await response.text(),
-                )
-                raise HonAuthenticationError("Login failure")
-            else:
-                try:
-                    await response.json()
+                if not needs_retry:
+                    try:
+                        await response.json()
+                    except json.JSONDecodeError as exc:
+                        _LOGGER.warning(
+                            "%s - JsonDecodeError %s - %s",
+                            response.request_info.url,
+                            response.status,
+                            await response.text(),
+                        )
+                        raise HonAuthenticationError("Decode Error") from exc
                     yield response
-                except json.JSONDecodeError as exc:
-                    _LOGGER.warning(
-                        "%s - JsonDecodeError %s - %s",
+                    return
+                if attempt == 1:
+                    _LOGGER.info(
+                        "%s - Error %s - %s",
                         response.request_info.url,
                         response.status,
                         await response.text(),
                     )
-                    raise HonAuthenticationError("Decode Error") from exc
+                elif attempt == 2:
+                    _LOGGER.error(
+                        "%s - Error %s - %s",
+                        response.request_info.url,
+                        response.status,
+                        await response.text(),
+                    )
+                    raise HonAuthenticationError("Login failure")
+            if attempt == 0:
+                _LOGGER.info("Try refreshing token...")
+                await self.auth.refresh(self._refresh_token)
+            else:
+                await self.create()

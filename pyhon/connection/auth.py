@@ -176,7 +176,7 @@ class HonAuth:
         return True
 
     def clear(self) -> None:
-        self._session.cookie_jar.clear_domain(const.API_URL.split("/")[-1])
+        self._session.cookie_jar.clear_domain(const.API_URL.rsplit("/", maxsplit=1)[-1])
         self._request.called_urls = []
         self._session_id = ""
         self._code_verifier = ""
