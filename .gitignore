@@ -3,6 +3,5 @@ venv/
 __pycache__/
 dist/
 **/*.egg-info/
-test*
 build/
 .vscode/
