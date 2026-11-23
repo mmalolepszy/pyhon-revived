@@ -2,10 +2,9 @@ import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from types import TracebackType
-from typing import Optional, Dict, Type, Any
+from typing import Optional, Dict, Type, Any, Self
 
 import aiohttp
-from typing_extensions import Self
 from yarl import URL
 
 from pyhon import const, exceptions

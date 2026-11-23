@@ -2,10 +2,9 @@ import json
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Self
 
 import aiohttp
-from typing_extensions import Self
 from yarl import URL
 
 from pyhon.connection.auth import HonAuth

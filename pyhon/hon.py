@@ -1,10 +1,9 @@
 import logging
 from pathlib import Path
 from types import TracebackType
-from typing import List, Optional, Dict, Any, Type, Callable
+from typing import List, Optional, Dict, Any, Type, Callable, Self
 
 from aiohttp import ClientSession
-from typing_extensions import Self
 
 from pyhon.appliance import HonAppliance
 from pyhon.connection.api import HonAPI

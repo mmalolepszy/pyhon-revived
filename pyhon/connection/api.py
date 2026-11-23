@@ -4,10 +4,9 @@ from datetime import datetime
 from pathlib import Path
 from pprint import pformat
 from types import TracebackType
-from typing import Dict, Optional, Any, List, no_type_check, Type
+from typing import Dict, Optional, Any, List, no_type_check, Type, Self
 
 from aiohttp import ClientSession
-from typing_extensions import Self
 
 from pyhon import const, exceptions
 from pyhon.appliance import HonAppliance

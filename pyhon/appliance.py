@@ -4,8 +4,7 @@ import logging
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, Dict, Any, TYPE_CHECKING, List, TypeVar, overload
-from typing_extensions import Self
+from typing import Optional, Dict, Any, TYPE_CHECKING, List, TypeVar, overload, Self
 
 from pyhon import diagnose, exceptions
 from pyhon.appliances.base import ApplianceBase
