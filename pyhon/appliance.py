@@ -56,7 +56,7 @@ class HonAppliance:
         await loop.run_in_executor(None, HonAppliance.import_module, self)
         return self
 
-    def import_module(self):
+    def import_module(self) -> None:
         try:
             self._extra = importlib.import_module(
                 f"pyhon.appliances.{self.appliance_type.lower()}"

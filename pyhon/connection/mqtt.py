@@ -52,7 +52,8 @@ class MQTTClient:
         _LOGGER.info(
             "Lifecycle Connection Success: %s", str(lifecycle_connect_success_data)
         )
-        if not lifecycle_connect_success_data.negotiated_settings.rejoined_session:
+        settings = lifecycle_connect_success_data.negotiated_settings
+        if settings is None or not settings.rejoined_session:
             # Resubscribe to all topics after reconnection
             # This is needed because we use a new client_id each time (no session persistence)
             _LOGGER.info("MQTT connection established, marking as not subscribed")
@@ -155,7 +156,7 @@ class MQTTClient:
         await loop.run_in_executor(None, MQTTClient._build_mqtt_client, self, aws_token)
         self.client.start()
 
-    def _build_mqtt_client(self, aws_token) -> None:
+    def _build_mqtt_client(self, aws_token: str) -> None:
         self._client = mqtt5_client_builder.websockets_with_custom_authorizer(
             endpoint=const.AWS_ENDPOINT,
             auth_authorizer_name=const.AWS_AUTHORIZER,

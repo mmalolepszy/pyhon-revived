@@ -24,7 +24,7 @@ class HonParameterProgram(HonParameterEnum):
         return self._value
 
     @value.setter
-    def value(self, value: str) -> None:
+    def value(self, value: str | float) -> None:
         if value in self.values:
             self._command.category = value
         else:

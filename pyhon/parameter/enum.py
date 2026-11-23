@@ -14,7 +14,7 @@ def clean_value(value: str | float) -> str:
 class HonParameterEnum(HonParameter):
     def __init__(self, key: str, attributes: Dict[str, Any], group: str) -> None:
         super().__init__(key, attributes, group)
-        self._default: str | float = ""
+        self._default: str = ""
         self._value: str | float = ""
         self._values: List[str] = []
         self._set_attributes()
@@ -50,7 +50,7 @@ class HonParameterEnum(HonParameter):
         return clean_value(self._value) if self._value is not None else self.values[0]
 
     @value.setter
-    def value(self, value: str) -> None:
+    def value(self, value: str | float) -> None:
         if clean_value(value) in self.values:
             self._value = value
             self.check_trigger(value)

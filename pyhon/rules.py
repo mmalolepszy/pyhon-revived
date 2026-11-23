@@ -39,7 +39,7 @@ class HonRuleSet:
         self,
         param_key: str,
         trigger_key: str,
-        trigger_data: Dict[str, Any],
+        trigger_data: Dict[str, Any] | str,
         extra: Optional[Dict[str, str]] = None,
     ) -> None:
         trigger_key = trigger_key.replace("@", "")

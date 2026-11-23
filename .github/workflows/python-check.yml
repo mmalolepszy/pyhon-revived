@@ -32,9 +32,9 @@ jobs:
     - name: Lint with ruff
       run: |
         ruff check
-    # - name: Type check with mypy
-    #   run: |
-    #     mypy pyhon/
+    - name: Type check with mypy
+      run: |
+        mypy pyhon/
     # - name: Analysing the code with pylint
     #   run: |
     #     pylint $(git ls-files '*.py')
