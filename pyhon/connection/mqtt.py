@@ -104,14 +104,12 @@ class MQTTClient:
             return
         payload = json.loads(data.publish_packet.payload.decode())
         topic = data.publish_packet.topic
+        _LOGGER.info("%s - %s", topic, payload)
         appliance = next(
             a for a in self._appliances if topic in a.info["topics"]["subscribe"]
         )
         if topic and "appliancestatus" in topic:
-            for parameter in payload["parameters"]:
-                appliance.attributes["parameters"][parameter["parName"]].update(
-                    parameter
-                )
+            appliance.update_parameters(payload["parameters"])
             # A status update comes from the appliance, so it is online, even if the
             # presence "connected" message was missed. Without this, an appliance
             # that was offline when HA started keeps machMode forced to 0.
@@ -142,7 +140,6 @@ class MQTTClient:
         elif topic and "discovery" in topic:
             _LOGGER.info("Discovered %s", appliance.nick_name)
         self._hon.notify()
-        _LOGGER.info("%s - %s", topic, payload)
 
     async def _start(self) -> None:
         if self._client is not None:

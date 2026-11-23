@@ -215,6 +215,20 @@ class HonAppliance:
             self._connection = category != "DISCONNECTED"
         self.refresh_derived_attributes()
 
+    def update_parameters(self, parameters: List[Dict[str, str]]) -> None:
+        """Apply parameter changes from an appliance status message. Options can
+        come as their applianceModel aliases (opt1, opt2, ...)."""
+        options = self.options
+        for parameter in parameters:
+            name = options.get(parameter["parName"], parameter["parName"])
+            attribute = self._attributes.get("parameters", {}).get(name)
+            if attribute is not None:
+                attribute.update(parameter)
+            else:
+                _LOGGER.warning(
+                    "%s: unknown parameter %s", self.nick_name, parameter["parName"]
+                )
+
     def refresh_derived_attributes(self) -> None:
         if self._extra:
             self._attributes = self._extra.attributes(self._attributes)
