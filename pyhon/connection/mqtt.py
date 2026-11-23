@@ -2,13 +2,14 @@ import asyncio
 import json
 import logging
 import secrets
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict
 
 from awscrt import mqtt5
 from awsiot import mqtt5_client_builder  # type: ignore[import-untyped]
 
 from pyhon import const
 from pyhon.appliance import HonAppliance
+from pyhon.diagnose import anonymize_mqtt_message
 
 if TYPE_CHECKING:
     from pyhon import Hon
@@ -102,8 +103,20 @@ class MQTTClient:
     def _on_publish_received(self, data: mqtt5.PublishReceivedData) -> None:
         if not (data and data.publish_packet and data.publish_packet.payload):
             return
-        payload = json.loads(data.publish_packet.payload.decode())
-        topic = data.publish_packet.topic
+        topic = data.publish_packet.topic or ""
+        payload = data.publish_packet.payload.decode(errors="replace")
+        try:
+            self._handle_message(topic, json.loads(payload))
+        # awscrt only prints exceptions from this callback to stderr, outside the HA log
+        except Exception as error:  # pylint: disable=broad-exception-caught
+            _LOGGER.exception(
+                "MQTT message handling failed (%s: %s): %s",
+                type(error).__name__,
+                error,
+                anonymize_mqtt_message(topic, payload),
+            )
+
+    def _handle_message(self, topic: str, payload: Dict[str, Any]) -> None:
         _LOGGER.info("%s - %s", topic, payload)
         appliance = next(
             a for a in self._appliances if topic in a.info["topics"]["subscribe"]

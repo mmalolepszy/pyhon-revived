@@ -43,6 +43,16 @@ def anonymize_data(data: str) -> str:
     return data
 
 
+def anonymize_mqtt_message(topic: str, payload: str) -> str:
+    """Topic and raw payload of an MQTT message, safe to put in a log."""
+    text = anonymize_data(f"{topic} - {payload}")
+    return re.sub(
+        r'"(ipAddress|sessionIdentifier|principalIdentifier)":\s*"[^"]*"',
+        r'"\1": "xxx"',
+        text,
+    )
+
+
 def _mask_value(value: str) -> str:
     """Mask letters and digits of a JSON-encoded string value.
 
