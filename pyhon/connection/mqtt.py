@@ -81,7 +81,9 @@ class MQTTClient:
             mqtt5.ConnectReasonCode.NOT_AUTHORIZED,
             mqtt5.ConnectReasonCode.BAD_USERNAME_OR_PASSWORD,
         ):
-            _LOGGER.info("MQTT connection rejected as unauthorized, will re-authenticate")
+            _LOGGER.info(
+                "MQTT connection rejected as unauthorized, will re-authenticate"
+            )
             self._needs_reauth = True
             if self._client is not None:
                 # Stop the client's own reconnect loop immediately, otherwise it
@@ -113,7 +115,9 @@ class MQTTClient:
             # presence "connected" message was missed. Without this, an appliance
             # that was offline when HA started keeps machMode forced to 0.
             appliance.connection = True
-            appliance.attributes.setdefault("lastConnEvent", {})["category"] = "CONNECTED"
+            appliance.attributes.setdefault("lastConnEvent", {})["category"] = (
+                "CONNECTED"
+            )
             appliance.refresh_derived_attributes()
             appliance.sync_params_to_command("settings")
         elif topic and "disconnected" in topic:
@@ -125,10 +129,14 @@ class MQTTClient:
             appliance.connection = False
             # The connectivity sensors read lastConnEvent, which REST only loads at
             # startup. Keep it in step with the presence messages.
-            appliance.attributes.setdefault("lastConnEvent", {})["category"] = "DISCONNECTED"
+            appliance.attributes.setdefault("lastConnEvent", {})["category"] = (
+                "DISCONNECTED"
+            )
         elif topic and "connected" in topic:
             appliance.connection = True
-            appliance.attributes.setdefault("lastConnEvent", {})["category"] = "CONNECTED"
+            appliance.attributes.setdefault("lastConnEvent", {})["category"] = (
+                "CONNECTED"
+            )
             _LOGGER.info("Connected %s", appliance.nick_name)
         elif topic and "discovery" in topic:
             _LOGGER.info("Discovered %s", appliance.nick_name)
@@ -161,7 +169,7 @@ class MQTTClient:
             on_lifecycle_connection_failure=self._on_lifecycle_connection_failure,
             on_lifecycle_disconnection=self._on_lifecycle_disconnection,
             on_publish_received=self._on_publish_received,
-            enable_metrics_collection=False
+            enable_metrics_collection=False,
         )
 
     def _subscribe_appliances(self) -> None:
@@ -171,7 +179,6 @@ class MQTTClient:
             self._subscribed = True
         except Exception as e:
             _LOGGER.error("Error subscribing to appliances: %s - %s", repr(e), str(e))
-
 
     def _subscribe(self, appliance: HonAppliance) -> None:
         for topic in appliance.info.get("topics", {}).get("subscribe", []):
@@ -203,6 +210,4 @@ class MQTTClient:
                 # fetch, client build) used to escape and kill this task
                 # silently; the connection was then never restarted and all
                 # updates stopped until a manual reload. Log and keep going.
-                _LOGGER.warning(
-                    "MQTT watchdog iteration failed, retrying: %r", error
-                )
+                _LOGGER.warning("MQTT watchdog iteration failed, retrying: %r", error)

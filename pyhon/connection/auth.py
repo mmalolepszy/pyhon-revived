@@ -77,7 +77,9 @@ class HonAuth:
         output = "hOn Authentication Error\n"
         for i, (status, url) in enumerate(self._request.called_urls):
             output += f" {i + 1: 2d}     {status} - {url}\n"
-        output += f"ERROR - {response.status} - {redact_url(response.request_info.url)}\n"
+        output += (
+            f"ERROR - {response.status} - {redact_url(response.request_info.url)}\n"
+        )
         output += f"{15 * '='} Response {15 * '='}\n{await response.text()}\n{40 * '='}"
         _LOGGER.error(output)
         if fail:
