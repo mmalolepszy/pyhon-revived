@@ -52,6 +52,7 @@ class HonParameterEnum(HonParameter):
     def value(self, value: str | float) -> None:
         if clean_value(value) in self.values:
             self._value = value
+            self._has_value = True
             self.check_trigger(value)
         else:
             raise ValueError(f"Allowed values: {self._values} But was: {value}")

@@ -296,7 +296,8 @@ class HonAppliance:
         if not (command := self.commands.get(command_name)):
             return
         for key in self.attributes.get("parameters", {}):
-            if new := command.parameters.get(key):
+            new = command.parameters.get(key)
+            if new and new.is_sent:
                 self.attributes["parameters"][key].update(
                     str(new.intern_value), shield=True
                 )
@@ -343,6 +344,8 @@ class HonAppliance:
                 self.sync_parameter(base_param, target_param)
 
     def sync_parameter(self, main: Parameter, target: Parameter) -> None:
+        if not main.has_value:
+            return
         if isinstance(main, HonParameterRange) and isinstance(
             target, HonParameterRange
         ):

@@ -62,6 +62,7 @@ class HonParameterRange(HonParameter):
             self.step * 100
         ):
             self._value = value
+            self._has_value = True
             self.check_trigger(value)
         else:
             allowed = f"min {self.min} max {self.max} step {self.step}"

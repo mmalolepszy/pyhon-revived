@@ -52,5 +52,9 @@ class HonParameterProgram(HonParameterEnum):
             values[int(parameter.parameters["prCode"].value)] = name
         return dict(sorted(values.items()))
 
+    @property
+    def has_value(self) -> bool:
+        return True
+
     def set_value(self, value: str) -> None:
         self._value = value

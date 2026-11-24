@@ -12,6 +12,7 @@ class HonParameter:
         self._typology: str = ""
         self._mandatory: int = 0
         self._value: str | float = ""
+        self._has_value: bool = False
         self._group: str = group
         self._triggers: Dict[
             str, List[Tuple[Callable[["HonRule"], None], "HonRule"]]
@@ -22,6 +23,7 @@ class HonParameter:
         self._category = self._attributes.get("category", "")
         self._typology = self._attributes.get("typology", "")
         self._mandatory = self._attributes.get("mandatory", 0)
+        self._has_value = bool({"defaultValue", "fixedValue"} & self._attributes.keys())
 
     @property
     def key(self) -> str:
@@ -34,7 +36,18 @@ class HonParameter:
     @value.setter
     def value(self, value: str | float) -> None:
         self._value = value
+        self._has_value = True
         self.check_trigger(value)
+
+    @property
+    def has_value(self) -> bool:
+        """False if there is no default and no value has been set yet."""
+        return self._has_value
+
+    @property
+    def is_sent(self) -> bool:
+        """The app leaves out optional parameters without a value."""
+        return bool(self.mandatory) or self.has_value
 
     @property
     def intern_value(self) -> str:
