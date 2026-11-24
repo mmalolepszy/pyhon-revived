@@ -109,3 +109,6 @@ class HonParameter:
 
     def reset(self) -> None:
         self._set_attributes()
+
+    def reset_allowed_values(self) -> None:
+        """Remove the limits set by a program or a rule."""

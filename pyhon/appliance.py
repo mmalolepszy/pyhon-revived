@@ -315,12 +315,21 @@ class HonAppliance:
                 continue
             try:
                 if not isinstance(setting, HonParameterRange):
-                    setting.value = str(new.value)
+                    self._set_reported_value(setting, str(new.value))
                 else:
-                    setting.value = float(new.value)
+                    self._set_reported_value(setting, float(new.value))
             except ValueError as error:
                 _LOGGER.info("Can't set %s - %s", key, error)
                 continue
+
+    @staticmethod
+    def _set_reported_value(setting: Parameter, value: str | float) -> None:
+        try:
+            setting.value = value
+        except ValueError:
+            # The limits come from the last program started by pyhon
+            setting.reset_allowed_values()
+            setting.value = value
 
     def sync_command(
         self,

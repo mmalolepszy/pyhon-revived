@@ -176,6 +176,45 @@ async def test_settings_sync_ignores_other_categories(
     assert "mqttEndpoint" not in settings_appliance.commands["settings"].settings
 
 
+async def test_reported_value_overrides_program_limits(
+    settings_appliance: HonAppliance,
+) -> None:
+    await settings_appliance.load_attributes()
+    settings = settings_appliance.commands["settings"].settings
+    settings["windSpeed"].values = ["2"]
+    settings["tempSel"].min = settings["tempSel"].max = 24
+    settings_appliance.update_parameters(
+        [change("windSpeed", "2", "1"), change("tempSel", "24", "20")]
+    )
+    settings_appliance.sync_params_to_command("settings")
+    assert settings["windSpeed"].value == "1"
+    assert settings["windSpeed"].values == ["1", "2", "5"]
+    assert settings["tempSel"].value == 20
+    assert (settings["tempSel"].min, settings["tempSel"].max) == (16, 30)
+
+
+async def test_allowed_reported_value_keeps_program_limits(
+    settings_appliance: HonAppliance,
+) -> None:
+    await settings_appliance.load_attributes()
+    settings = settings_appliance.commands["settings"].settings
+    settings["tempSel"].max = 25
+    settings_appliance.update_parameters([change("tempSel", "24", "20")])
+    settings_appliance.sync_params_to_command("settings")
+    assert settings["tempSel"].value == 20
+    assert settings["tempSel"].max == 25
+
+
+async def test_invalid_reported_value_is_skipped(
+    settings_appliance: HonAppliance,
+) -> None:
+    await settings_appliance.load_attributes()
+    settings = settings_appliance.commands["settings"].settings
+    settings_appliance.update_parameters([change("windSpeed", "2", "9")])
+    settings_appliance.sync_params_to_command("settings")
+    assert settings["windSpeed"].value == "2"
+
+
 @pytest.fixture(name="sent")
 def fixture_sent(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     sent: list[dict[str, Any]] = []

@@ -26,6 +26,9 @@ class HonParameterEnum(HonParameter):
         self._value = self._default or "0"
         self._values = self._attributes.get("enumValues", [])
 
+    def reset_allowed_values(self) -> None:
+        self.values = list(self._attributes.get("enumValues", []))
+
     def __repr__(self) -> str:
         return f"{self.__class__} (<{self.key}> {self.values})"
 
