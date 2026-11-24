@@ -142,10 +142,13 @@ class HonCommand:
         return await self.send_parameters(params)
 
     async def send_specific(self, param_names: List[str]) -> bool:
-        params: Dict[str, str | float] = {}
-        for key, parameter in self._parameters.items():
-            if key in param_names or parameter.mandatory:
-                params[key] = parameter.value
+        """Send the given and the mandatory parameters, like the app does when
+        settings are changed."""
+        params = {
+            key: value
+            for key, value in self.parameter_groups.get("parameters", {}).items()
+            if key in param_names or self._parameters[key].mandatory
+        }
         return await self.send_parameters(params)
 
     async def send_parameters(self, params: Dict[str, str | float]) -> bool:
@@ -153,7 +156,7 @@ class HonCommand:
         ancillary_params.pop("programRules", None)
         if "prStr" in params:
             params["prStr"] = self._category_name.upper()
-        self.appliance.sync_command_to_params(self.name)
+        self.appliance.sync_command_to_params(self.name, params)
         try:
             result = await self.api.send_command(
                 self._appliance,

@@ -1,6 +1,7 @@
 import json
 import logging
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -114,6 +115,22 @@ async def fixture_settings_appliance(tmp_path: Path) -> HonAppliance:
                         "enumValues": [1, 2, 5],
                         "defaultValue": "5",
                     },
+                    "lightStatus": {
+                        "typology": "range",
+                        "mandatory": 0,
+                        "minimumValue": "0",
+                        "maximumValue": "1",
+                        "incrementValue": "1",
+                        "defaultValue": "0",
+                    },
+                    "humiditySel": {
+                        "typology": "range",
+                        "mandatory": 0,
+                        "minimumValue": "30",
+                        "maximumValue": "80",
+                        "incrementValue": "1",
+                        "defaultValue": "30",
+                    },
                 },
             },
             "setConfig": {
@@ -123,7 +140,12 @@ async def fixture_settings_appliance(tmp_path: Path) -> HonAppliance:
         }
     }
     (data / "commands.json").write_text(json.dumps(commands))
-    parameters = {"tempSel": "24", "windSpeed": "2", "mqttEndpoint": "test"}
+    parameters = {
+        "tempSel": "24",
+        "windSpeed": "2",
+        "humiditySel": "40",
+        "mqttEndpoint": "test",
+    }
     attributes = {
         "shadow": {"parameters": {k: {"parNewVal": v} for k, v in parameters.items()}}
     }
@@ -152,3 +174,48 @@ async def test_settings_sync_ignores_other_categories(
     await settings_appliance.load_attributes()
     settings_appliance.sync_params_to_command("settings")
     assert "mqttEndpoint" not in settings_appliance.commands["settings"].settings
+
+
+@pytest.fixture(name="sent")
+def fixture_sent(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
+    sent: list[dict[str, Any]] = []
+
+    async def send_command(
+        _api: Any, _appliance: Any, _command: str, parameters: Any, *_args: Any
+    ) -> bool:
+        sent.append(dict(parameters))
+        return True
+
+    monkeypatch.setattr(FakeAPI, "send_command", send_command)
+    return sent
+
+
+async def test_send_specific_sends_changed_and_mandatory(
+    settings_appliance: HonAppliance, sent: list[dict[str, Any]]
+) -> None:
+    await settings_appliance.load_attributes()
+    command = settings_appliance.commands["settings"]
+    command.settings["lightStatus"].value = 1
+    await command.send_specific(["lightStatus"])
+    assert sent == [{"tempSel": "24", "windSpeed": "2", "lightStatus": "1"}]
+
+
+async def test_send_specific_leaves_out_unchanged_optional(
+    settings_appliance: HonAppliance, sent: list[dict[str, Any]]
+) -> None:
+    await settings_appliance.load_attributes()
+    await settings_appliance.commands["settings"].send_specific(["tempSel"])
+    assert sent == [{"tempSel": "24", "windSpeed": "2"}]
+
+
+async def test_state_follows_only_sent_parameters(
+    settings_appliance: HonAppliance,
+    sent: list[dict[str, Any]],  # pylint: disable=unused-argument
+) -> None:
+    await settings_appliance.load_attributes()
+    command = settings_appliance.commands["settings"]
+    command.settings["tempSel"].value = 25
+    command.settings["humiditySel"].value = 60
+    await command.send_specific(["tempSel"])
+    assert values(settings_appliance)["tempSel"] == "25"
+    assert values(settings_appliance)["humiditySel"] == "40"
