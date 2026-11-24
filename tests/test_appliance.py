@@ -88,3 +88,67 @@ async def test_sync_copies_value_and_allowed_values(appliance: HonAppliance) -> 
     appliance.sync_parameter(source, target)
     assert target.value == "-16"
     assert target.values == ["8", "-16"]
+
+
+@pytest.fixture(name="settings_appliance")
+async def fixture_settings_appliance(tmp_path: Path) -> HonAppliance:
+    data = tmp_path / "ac_1"
+    data.mkdir()
+    command = {"description": "", "protocolType": ""}
+    commands = {
+        "settings": {
+            "setParameters": {
+                **command,
+                "parameters": {
+                    "tempSel": {
+                        "typology": "range",
+                        "mandatory": 1,
+                        "minimumValue": "16",
+                        "maximumValue": "30",
+                        "incrementValue": "1",
+                        "defaultValue": "22",
+                    },
+                    "windSpeed": {
+                        "typology": "enum",
+                        "mandatory": 1,
+                        "enumValues": [1, 2, 5],
+                        "defaultValue": "5",
+                    },
+                },
+            },
+            "setConfig": {
+                **command,
+                "parameters": {"mqttEndpoint": {"typology": "fixed", "mandatory": 0}},
+            },
+        }
+    }
+    (data / "commands.json").write_text(json.dumps(commands))
+    parameters = {"tempSel": "24", "windSpeed": "2", "mqttEndpoint": "test"}
+    attributes = {
+        "shadow": {"parameters": {k: {"parNewVal": v} for k, v in parameters.items()}}
+    }
+    (data / "attributes.json").write_text(json.dumps(attributes))
+    info = {"applianceTypeName": "AC", "applianceModelId": 1, "nickName": "AC"}
+    appliance = HonAppliance(FakeAPI(tmp_path), info)
+    await appliance.load_commands()
+    return appliance
+
+
+async def test_settings_follow_loaded_attributes(
+    settings_appliance: HonAppliance,
+) -> None:
+    settings = settings_appliance.commands["settings"].settings
+    assert settings["tempSel"].value == 22
+    assert settings["windSpeed"].value == "5"
+
+    await settings_appliance.load_attributes()
+    assert settings["tempSel"].value == 24
+    assert settings["windSpeed"].value == "2"
+
+
+async def test_settings_sync_ignores_other_categories(
+    settings_appliance: HonAppliance,
+) -> None:
+    await settings_appliance.load_attributes()
+    settings_appliance.sync_params_to_command("settings")
+    assert "mqttEndpoint" not in settings_appliance.commands["settings"].settings

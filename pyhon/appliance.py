@@ -218,6 +218,8 @@ class HonAppliance:
         self._attributes |= attributes
         if category := attributes.get("lastConnEvent", {}).get("category"):
             self._connection = category != "DISCONNECTED"
+        # Before the derived attributes, which override some values of offline appliances
+        self.sync_params_to_command("settings")
         self.refresh_derived_attributes()
 
     def update_parameters(self, parameters: List[Dict[str, str]]) -> None:
@@ -248,7 +250,6 @@ class HonAppliance:
         if force or not self._last_update or self._last_update < min_age:
             self._last_update = now
             await self.load_attributes()
-            self.sync_params_to_command("settings")
 
     @property
     def command_parameters(self) -> Dict[str, Dict[str, str | float]]:
@@ -305,17 +306,16 @@ class HonAppliance:
     def sync_params_to_command(self, command_name: str) -> None:
         if not (command := self.commands.get(command_name)):
             return
-        for key in command.setting_keys:
+        for key, setting in command.settings.items():
             if (
                 new := self.attributes.get("parameters", {}).get(key)
             ) is None or new.value == "":
                 continue
-            setting = command.settings[key]
             try:
                 if not isinstance(setting, HonParameterRange):
-                    command.settings[key].value = str(new.value)
+                    setting.value = str(new.value)
                 else:
-                    command.settings[key].value = float(new.value)
+                    setting.value = float(new.value)
             except ValueError as error:
                 _LOGGER.info("Can't set %s - %s", key, error)
                 continue
