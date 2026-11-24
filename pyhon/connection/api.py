@@ -1,5 +1,4 @@
 import json
-import logging
 from datetime import datetime
 from pathlib import Path
 from pprint import pformat
@@ -8,13 +7,13 @@ from typing import Dict, Optional, Any, List, no_type_check, Type, Self
 
 from aiohttp import ClientSession
 
-from pyhon import const, exceptions
+from pyhon import const, exceptions, log
 from pyhon.appliance import HonAppliance
 from pyhon.connection.auth import HonAuth
 from pyhon.connection.handler.anonym import HonAnonymousConnectionHandler
 from pyhon.connection.handler.hon import HonConnectionHandler
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = log.get_logger(__name__)
 
 
 # pylint: disable=too-many-instance-attributes

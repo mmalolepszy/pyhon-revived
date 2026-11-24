@@ -1,6 +1,5 @@
 import base64
 import hashlib
-import logging
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -9,12 +8,12 @@ from typing import Tuple
 import aiohttp
 from aiohttp import ClientResponse
 
-from pyhon import const, exceptions
+from pyhon import const, exceptions, log
 from pyhon.connection.device import HonDevice
 from pyhon.connection.handler.auth import HonAuthConnectionHandler
 from pyhon.helper import redact_url
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = log.get_logger(__name__)
 
 
 @dataclass

@@ -1,20 +1,18 @@
 import asyncio
 import json
-import logging
 import secrets
 from typing import TYPE_CHECKING, Any, Dict
 
 from awscrt import mqtt5
 from awsiot import mqtt5_client_builder  # type: ignore[import-untyped]
 
-from pyhon import const
+from pyhon import const, log
 from pyhon.appliance import HonAppliance
-from pyhon.diagnose import anonymize_mqtt_message
 
 if TYPE_CHECKING:
     from pyhon import Hon
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = log.get_logger(__name__)
 
 
 class MQTTClient:
@@ -110,10 +108,11 @@ class MQTTClient:
         # awscrt only prints exceptions from this callback to stderr, outside the HA log
         except Exception as error:  # pylint: disable=broad-exception-caught
             _LOGGER.exception(
-                "MQTT message handling failed (%s: %s): %s",
+                "MQTT message handling failed (%s: %s): %s - %s",
                 type(error).__name__,
                 error,
-                anonymize_mqtt_message(topic, payload),
+                topic,
+                payload,
             )
 
     def _handle_message(self, topic: str, payload: Dict[str, Any]) -> None:

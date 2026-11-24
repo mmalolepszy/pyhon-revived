@@ -2,7 +2,6 @@
 import argparse
 import asyncio
 import json
-import logging
 import sys
 from getpass import getpass
 from pathlib import Path
@@ -12,9 +11,9 @@ if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # pylint: disable=wrong-import-position
-from pyhon import Hon, HonAPI, diagnose, printer
+from pyhon import Hon, HonAPI, diagnose, log, printer
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = log.get_logger(__name__)
 
 
 def get_arguments() -> Dict[str, Any]:

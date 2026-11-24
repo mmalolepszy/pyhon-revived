@@ -1,10 +1,9 @@
-import logging
-
 from typing import Dict, Any, List
 
+from pyhon import log
 from pyhon.parameter.base import HonParameter
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = log.get_logger(__name__)
 
 
 def clean_value(value: str | float) -> str:

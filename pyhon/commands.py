@@ -1,8 +1,7 @@
-import logging
 from copy import copy
 from typing import Optional, Dict, Any, List, TYPE_CHECKING, Union
 
-from pyhon import exceptions
+from pyhon import exceptions, log
 from pyhon.exceptions import ApiError, NoAuthenticationException
 from pyhon.parameter.base import HonParameter
 from pyhon.parameter.enum import HonParameterEnum
@@ -16,7 +15,7 @@ if TYPE_CHECKING:
     from pyhon import HonAPI
     from pyhon.appliance import HonAppliance
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = log.get_logger(__name__)
 
 
 class HonCommand:

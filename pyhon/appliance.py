@@ -1,12 +1,11 @@
 import asyncio
 import importlib
-import logging
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Dict, Any, TYPE_CHECKING, List, TypeVar, overload, Self
 
-from pyhon import diagnose, exceptions
+from pyhon import diagnose, exceptions, log
 from pyhon.appliances.base import ApplianceBase
 from pyhon.attributes import HonAttribute
 from pyhon.command_loader import HonCommandLoader
@@ -19,7 +18,7 @@ from pyhon.typedefs import Parameter
 if TYPE_CHECKING:
     from pyhon import HonAPI
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = log.get_logger(__name__)
 
 T = TypeVar("T")
 
@@ -34,6 +33,12 @@ class HonAppliance:
         if attributes := info.get("attributes"):
             info["attributes"] = {v["parName"]: v["parValue"] for v in attributes}
         self._info: Dict[str, Any] = info
+        log.register_appliance(
+            self.appliance_type,
+            self.mac_address,
+            str(info.get("nickName", "")),
+            str(info.get("serialNumber", "")),
+        )
         self._api: Optional[HonAPI] = api
         self._appliance_model: Dict[str, Any] = {}
 

@@ -1,4 +1,3 @@
-import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Dict, Any
@@ -6,11 +5,11 @@ from typing import Dict, Any
 import aiohttp
 from yarl import URL
 
-from pyhon import const
+from pyhon import const, log
 from pyhon.connection.handler.base import ConnectionHandler
 from pyhon.typedefs import Callback
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = log.get_logger(__name__)
 
 
 class HonAnonymousConnectionHandler(ConnectionHandler):

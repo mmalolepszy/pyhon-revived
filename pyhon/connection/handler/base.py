@@ -1,4 +1,3 @@
-import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from types import TracebackType
@@ -7,10 +6,10 @@ from typing import Optional, Dict, Type, Any, Self
 import aiohttp
 from yarl import URL
 
-from pyhon import const, exceptions
+from pyhon import const, exceptions, log
 from pyhon.typedefs import Callback
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = log.get_logger(__name__)
 
 
 class ConnectionHandler:

@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 from types import TracebackType
 from typing import List, Optional, Dict, Any, Type, Callable, Self
@@ -10,8 +9,9 @@ from pyhon.connection.api import HonAPI
 from pyhon.connection.api import TestAPI
 from pyhon.connection.mqtt import MQTTClient
 from pyhon.exceptions import NoAuthenticationException
+from pyhon import log
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = log.get_logger(__name__)
 
 
 # pylint: disable=too-many-instance-attributes
@@ -26,6 +26,8 @@ class Hon:
         test_data_path: Optional[Path] = None,
     ):
         self._email: Optional[str] = email
+        log.register_value(email or "", "<email>")
+        log.register_value(mobile_id, "<mobile_id>")
         self._password: Optional[str] = password
         self._session: ClientSession | None = session
         self._appliances: List[HonAppliance] = []
