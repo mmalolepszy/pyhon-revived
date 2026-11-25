@@ -99,6 +99,10 @@ class Hon:
         except (KeyError, ValueError, IndexError) as error:
             _LOGGER.exception(error)
             _LOGGER.error("Device data - %s", appliance_data)
+        try:
+            await appliance.load_troubleshooting()
+        except Exception as error:  # pylint: disable=broad-exception-caught
+            _LOGGER.warning("Can't load troubleshooting data - %s", error)
         self._appliances.append(appliance)
 
     async def setup(self) -> None:

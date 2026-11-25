@@ -13,6 +13,7 @@ from pyhon.commands import HonCommand
 from pyhon.parameter.base import HonParameter
 from pyhon.parameter.enum import HonParameterEnum
 from pyhon.parameter.range import HonParameterRange
+from pyhon.troubleshooting import HonError, decode_errors
 from pyhon.typedefs import Parameter
 
 if TYPE_CHECKING:
@@ -45,6 +46,7 @@ class HonAppliance:
         self._commands: Dict[str, HonCommand] = {}
         self._statistics: Dict[str, Any] = {}
         self._attributes: Dict[str, Any] = {}
+        self._troubleshooting: List[Dict[str, Any]] = []
         self._zone: int = zone
         self._additional_data: Dict[str, Any] = {}
         self._last_update: Optional[datetime] = None
@@ -243,6 +245,35 @@ class HonAppliance:
     async def load_statistics(self) -> None:
         self._statistics = await self.api.load_statistics(self)
         self._statistics |= await self.api.load_maintenance(self)
+
+    async def load_troubleshooting(self) -> None:
+        """Load the error code definitions used by :attr:`errors`."""
+        brand = str(self.info.get("brand", ""))
+        self._troubleshooting = await self.api.load_troubleshooting(
+            self.appliance_type, brand
+        )
+
+    @property
+    def troubleshooting(self) -> List[Dict[str, Any]]:
+        """Raw troubleshooting entries of the cloud (see load_troubleshooting)."""
+        return self._troubleshooting
+
+    @property
+    def errors(self) -> List[HonError]:
+        """Active errors decoded from the ``errors`` attribute.
+
+        Empty when the appliance reports no error. Without troubleshooting
+        data the codes fall back to ``bit<n>`` for every set bit, so the
+        property can always be used to detect an error state.
+        """
+        raw = self._attributes.get("parameters", {}).get("errors")
+        value = raw.value if isinstance(raw, HonAttribute) else raw
+        return decode_errors(value, self._troubleshooting)
+
+    @property
+    def error_codes(self) -> List[str]:
+        """Display codes of the active errors, e.g. ``["E4"]``."""
+        return [error.code for error in self.errors]
 
     async def update(self, force: bool = False) -> None:
         now = datetime.now()
