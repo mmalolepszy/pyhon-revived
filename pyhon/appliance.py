@@ -317,10 +317,28 @@ class HonAppliance:
                 if not isinstance(setting, HonParameterRange):
                     self._set_reported_value(setting, str(new.value))
                 else:
-                    self._set_reported_value(setting, float(new.value))
+                    self._set_reported_range_value(setting, float(new.value))
             except ValueError as error:
                 _LOGGER.info("Can't set %s - %s", key, error)
                 continue
+
+    @classmethod
+    def _set_reported_range_value(
+        cls, setting: HonParameterRange, value: float
+    ) -> None:
+        """Round to the nearest step: a wine cellar reports whole °F, so a
+        target of 8 °C comes back as 7.8, which a step of 1 rejects."""
+        try:
+            setting.value = cls._round_to_step(setting, value)
+        except ValueError:
+            # The limits come from the last program started by pyhon
+            setting.reset_allowed_values()
+            setting.value = cls._round_to_step(setting, value)
+
+    @staticmethod
+    def _round_to_step(setting: HonParameterRange, value: float) -> float:
+        steps = round((value - setting.min) / setting.step)
+        return round(setting.min + steps * setting.step, 2)
 
     @staticmethod
     def _set_reported_value(setting: Parameter, value: str | float) -> None:
