@@ -21,7 +21,7 @@ INFO = {
 }
 
 
-class FakeHon:
+class FakeHon:  # pylint: disable=too-few-public-methods
     def __init__(self, appliances: list[HonAppliance]) -> None:
         self.appliances = appliances
         self.notified = 0
