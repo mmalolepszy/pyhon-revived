@@ -4,6 +4,9 @@ _SENSITIVE_QUERY_PARAMS = {"username", "password"}
 
 
 def str_to_float(string: str | float) -> float:
+    if isinstance(string, float):
+        # int() would truncate: 7.5 must stay 7.5, not become 7
+        return int(string) if string.is_integer() else string
     try:
         return int(string)
     except ValueError:

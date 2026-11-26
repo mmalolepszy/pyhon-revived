@@ -215,6 +215,46 @@ async def test_invalid_reported_value_is_skipped(
     assert settings["windSpeed"].value == "2"
 
 
+@pytest.mark.parametrize(
+    ("reported", "expected"),
+    # A wine cellar reports whole °F: 8 °C -> 46 °F -> 7.8, 16 °C -> 61 °F -> 16.1
+    [("20.6", 21), ("16.1", 16), ("23.5", 24), ("24", 24)],
+)
+async def test_reported_value_rounds_to_step(
+    settings_appliance: HonAppliance, reported: str, expected: int
+) -> None:
+    await settings_appliance.load_attributes()
+    settings = settings_appliance.commands["settings"].settings
+    settings_appliance.update_parameters([change("tempSel", "24", reported)])
+    settings_appliance.sync_params_to_command("settings")
+    assert settings["tempSel"].value == expected
+    assert str(settings["tempSel"].intern_value) == str(expected)
+
+
+async def test_reported_value_rounds_to_fractional_step(
+    settings_appliance: HonAppliance,
+) -> None:
+    await settings_appliance.load_attributes()
+    settings = settings_appliance.commands["settings"].settings
+    settings["tempSel"].step = 0.5
+    for reported, expected in (("20.7", 20.5), ("20.8", 21), ("17.2", 17)):
+        settings_appliance.update_parameters([change("tempSel", "24", reported)])
+        settings_appliance.sync_params_to_command("settings")
+        assert settings["tempSel"].value == expected
+
+
+async def test_rounded_value_outside_program_limits(
+    settings_appliance: HonAppliance,
+) -> None:
+    await settings_appliance.load_attributes()
+    settings = settings_appliance.commands["settings"].settings
+    settings["tempSel"].max = 25
+    settings_appliance.update_parameters([change("tempSel", "24", "27.8")])
+    settings_appliance.sync_params_to_command("settings")
+    assert settings["tempSel"].value == 28
+    assert settings["tempSel"].max == 30
+
+
 @pytest.fixture(name="sent")
 def fixture_sent(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     sent: list[dict[str, Any]] = []
