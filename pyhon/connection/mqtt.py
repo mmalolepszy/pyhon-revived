@@ -117,9 +117,23 @@ class MQTTClient:
 
     def _handle_message(self, topic: str, payload: Dict[str, Any]) -> None:
         _LOGGER.info("%s - %s", topic, payload)
-        appliance = next(
+        # A multi-zone appliance (e.g. a wine cellar) is loaded as one appliance
+        # per zone plus the base appliance, all on the same topics: each of them
+        # needs the update, not only the first one.
+        appliances = [
             a for a in self._appliances if topic in a.info["topics"]["subscribe"]
-        )
+        ]
+        if not appliances:
+            _LOGGER.warning("No appliance for topic %s", topic)
+            return
+        for appliance in appliances:
+            self._update_appliance(appliance, topic, payload)
+        self._hon.notify()
+
+    @staticmethod
+    def _update_appliance(
+        appliance: HonAppliance, topic: str, payload: Dict[str, Any]
+    ) -> None:
         if topic and "appliancestatus" in topic:
             appliance.update_parameters(payload["parameters"])
             # A status update comes from the appliance, so it is online, even if the
@@ -151,7 +165,6 @@ class MQTTClient:
             _LOGGER.info("Connected %s", appliance.nick_name)
         elif topic and "discovery" in topic:
             _LOGGER.info("Discovered %s", appliance.nick_name)
-        self._hon.notify()
 
     async def _start(self) -> None:
         if self._client is not None:
