@@ -7,6 +7,12 @@ from pyhon import log
 MAC = "1c-9d-c2-8a-5d-d4"
 
 
+@pytest.fixture
+def ha_logs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Propagate the anonymized copies, as the Home Assistant integration does."""
+    monkeypatch.setattr(logging.getLogger(log.HA_ROOT), "propagate", True)
+
+
 def test_mac_becomes_stable_hash() -> None:
     text = log.anonymize(f"haier/things/{MAC}/event - {{'macAddress': '{MAC}'}}")
     assert MAC not in text
@@ -37,6 +43,28 @@ def test_private_values_masked_and_data_kept() -> None:
     assert "'parName': 'opt5'" in text
 
 
+class ListHandler(logging.Handler):
+    def __init__(self) -> None:
+        super().__init__()
+        self.records: list[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
+
+
+def test_only_raw_records_reach_the_root_logger_by_default() -> None:
+    # caplog also captures non-propagating loggers, so collect at the root logger
+    handler = ListHandler()
+    root = logging.getLogger()
+    root.addHandler(handler)
+    try:
+        log.get_logger("pyhon.test").warning("%s", MAC)
+    finally:
+        root.removeHandler(handler)
+    assert [(r.name, r.getMessage()) for r in handler.records] == [("pyhon.test", MAC)]
+
+
+@pytest.mark.usefixtures("ha_logs")
 def test_writes_raw_and_anonymized(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG)
     log.get_logger("pyhon.test").info("%s - %s", "topic", MAC)
@@ -47,6 +75,7 @@ def test_writes_raw_and_anonymized(caplog: pytest.LogCaptureFixture) -> None:
     }
 
 
+@pytest.mark.usefixtures("ha_logs")
 def test_anonymized_logger_respects_its_level(
     caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -56,6 +85,7 @@ def test_anonymized_logger_respects_its_level(
     assert [r.name for r in caplog.records] == ["pyhon.test"]
 
 
+@pytest.mark.usefixtures("ha_logs")
 def test_exception_traceback_is_anonymized(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG)
     try:
@@ -68,6 +98,7 @@ def test_exception_traceback_is_anonymized(caplog: pytest.LogCaptureFixture) -> 
     assert MAC not in ha.getMessage()
 
 
+@pytest.mark.usefixtures("ha_logs")
 def test_record_points_to_caller(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG)
     log.get_logger("pyhon.test").warning("here")

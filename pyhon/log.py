@@ -1,6 +1,6 @@
 """Loggers that write every record twice: unchanged to ``pyhon.*`` and
 anonymized to ``pyhon_ha.*`` (safe to share, e.g. via Home Assistant's debug
-logging)."""
+logging). ``pyhon_ha`` does not propagate unless a program turns it on."""
 
 import hashlib
 import logging
@@ -9,6 +9,11 @@ import traceback
 
 RAW_ROOT = "pyhon"
 HA_ROOT = "pyhon_ha"
+
+# The anonymized copies are for Home Assistant only: the integration turns on
+# propagation. Elsewhere (command line, other programs) only pyhon.* is seen.
+logging.getLogger(HA_ROOT).addHandler(logging.NullHandler())
+logging.getLogger(HA_ROOT).propagate = False
 
 _START = r"(?<![0-9A-Za-z])"
 _END = r"(?![0-9A-Za-z])"
