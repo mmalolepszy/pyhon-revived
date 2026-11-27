@@ -10,8 +10,10 @@ from pyhon.appliances.base import ApplianceBase
 from pyhon.attributes import HonAttribute
 from pyhon.command_loader import HonCommandLoader
 from pyhon.commands import HonCommand
+from pyhon.duration import calculate_hqd_duration, is_hqd_duration_supported
 from pyhon.parameter.base import HonParameter
 from pyhon.parameter.enum import HonParameterEnum
+from pyhon.parameter.fixed import HonParameterFixed
 from pyhon.parameter.range import HonParameterRange
 from pyhon.typedefs import Parameter
 
@@ -168,6 +170,10 @@ class HonAppliance:
         return dict(self._appliance_model.get("options", {}))
 
     @property
+    def appliance_model(self) -> Dict[str, Any]:
+        return self._appliance_model
+
+    @property
     def commands(self) -> Dict[str, HonCommand]:
         return self._commands
 
@@ -262,6 +268,12 @@ class HonAppliance:
             for key in command.setting_keys:
                 setting = command.settings.get(key, self._default_setting)
                 result[f"{name}.{key}"] = setting
+        if (duration := calculate_hqd_duration(self)) is not None:
+            result["startProgram.remainingTime"] = HonParameterFixed(
+                "remainingTime",
+                {"fixedValue": str(duration), "category": "time", "typology": "fixed"},
+                "remainingTimes",
+            )
         if self._extra:
             return self._extra.settings(result)
         return result
@@ -272,6 +284,11 @@ class HonAppliance:
         for name, command in self._commands.items():
             for key in command.setting_keys:
                 result.append(f"{name}.{key}")
+        if (
+            "startProgram.remainingTime" not in result
+            and is_hqd_duration_supported(self)
+        ):
+            result.append("startProgram.remainingTime")
         return result
 
     @property
